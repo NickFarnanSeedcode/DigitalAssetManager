@@ -1,13 +1,15 @@
-appId: com.nickfarnan.digitaldam
-productName: DigitalDAM
+appId: com.nickfarnan.atlasforge
+productName: AtlasForge
 directories:
   output: dist-electron
 files:
   - index.html
   - electron/**/*
   - "!electron/**/*.test.cjs"
+  - assets/**/*
 mac:
   target:
     - target: dmg
       arch: arm64
   category: public.app-category.productivity
+  icon: assets/icon.png
