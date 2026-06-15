@@ -1674,13 +1674,19 @@ async function localResolveObjectURLs(assets) {
 }
 
 async function verifyDirPermission(handle) {
-    let perm = await handle.queryPermission({ mode: 'readwrite' });
-    if (perm === 'granted') return true;
-    if (perm === 'prompt') {
-        perm = await handle.requestPermission({ mode: 'readwrite' });
-        return perm === 'granted';
+    try {
+        let perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm === 'granted') return true;
+        if (perm === 'prompt') {
+            perm = await handle.requestPermission({ mode: 'readwrite' });
+            return perm === 'granted';
+        }
+        return false;
+    } catch {
+        // requestPermission() throws at boot when there's no user activation.
+        // Treat as "not granted" so the caller can fall back instead of hanging.
+        return false;
     }
-    return false;
 }
 
 async function switchToCloud() {
