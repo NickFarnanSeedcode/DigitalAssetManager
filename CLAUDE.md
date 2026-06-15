@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-The project has two parts:
+The project has two core parts — a **frontend** and a **backend** — plus an optional **Electron desktop shell** (`electron/`) that wraps the same frontend to add native file operations. macOS only.
 
 ### Frontend — `index.html`
 One self-contained file with three sections:
@@ -46,6 +46,19 @@ Vercel serverless functions (Node.js, ES modules):
 - **`api/asset/[id].js`** — `PATCH` updates `name`/`tags` for an asset; `DELETE` removes the row from Supabase and deletes its file from Vercel Blob.
 - **`api/suggest-tags.js`** — `POST` — accepts `{ thumbnail, filename, fileType }`. For images, calls Google Cloud Vision `LABEL_DETECTION` and returns labels with score ≥ 0.7 as tag suggestions. For non-image files, derives basic tags from the filename and MIME type locally without an external call.
 
+### Desktop — `electron/` (optional)
+
+An Electron shell wraps the **same `index.html`** to add native OS file operations a browser can't do (multi-file drag-out, copy-as-files, save-to-folder). The Vercel web app is unchanged; native features are additive and feature-detected via `window.electronAPI`. Electron files use the `.cjs` extension (the package is `"type": "module"`, so `.cjs` forces CommonJS). macOS only.
+
+- **`electron/main.cjs`** — app lifecycle. Registers a custom **`app://` scheme** (`standard` + `secure`) and serves the bundled `index.html` from it, so secure-context APIs (`showDirectoryPicker`, clipboard, `crypto.randomUUID`) behave as on `https://`. Window uses `contextIsolation: true`, `nodeIntegration: false` (sandbox stays on). Wires the `prepare-drag` / `begin-drag` / `stage-and-copy` / `stage-and-save` IPC handlers; cleans temp dirs on close.
+- **`electron/preload.cjs`** — exposes `window.electronAPI` via `contextBridge`: `{ apiBase, prepareDrag, beginDrag, copyFiles, saveToFolder }`. A sandboxed preload can't `require()` local files, so `apiBase` is passed from main via `webPreferences.additionalArguments` and read from `process.argv`.
+- **`electron/config.cjs`** — single source of `API_BASE` (the Vercel origin Cloud-mode `/api/*` calls resolve to under `app://`). Override with the `DAM_API_BASE` env var.
+- **`electron/staging.cjs`** — `safeFilename()` + `stage(specs)`: writes asset "specs" into a fresh temp dir and returns paths. Cloud specs carry a `url` (fetched in main); Local specs carry `bytes`. Unit-tested with `node:test`.
+- **`electron/native-ops.cjs`** — `startDrag` (uses the dragged asset's icon, falling back to a real macOS document icon — a degenerate/empty icon makes macOS silently refuse the drag), `copyFiles` (writes an `NSFilenamesPboardType` plist so Finder pastes real files), `saveToFolder` (native dialog + copy). `buildFilenamesPlist` is unit-tested.
+- **`electron-builder.yml`** — packages an unsigned macOS arm64 `.dmg`.
+
+Scripts: `npm run electron` (dev), `npm test` (`node:test` over the electron modules), `npm run dist` (build the `.dmg`).
+
 ### Storage
 
 Two modes, selectable in Settings → Storage. Switching modes does not migrate assets between stores.
@@ -57,7 +70,7 @@ Two modes, selectable in Settings → Storage. Switching modes does not migrate 
 **Local mode**:
 - **Designated folder** (user-selected via `showDirectoryPicker`) — files are stored as `{id}.{ext}` directly in this folder.
 - **`dam_data.json`** — lives in the same folder; contains `{ assets: [...] }` with the full asset records. The `blobUrl` field stores the filename (`{id}.{ext}`) rather than a remote URL.
-- **Folder handle persistence** — the `FileSystemDirectoryHandle` is stored in IndexedDB (`DigitalDAM` database, `handles` store) so the folder survives page reloads. On reload, the browser re-prompts for permission; if denied, the app falls back to Cloud mode automatically.
+- **Folder handle persistence** — the `FileSystemDirectoryHandle` is stored in IndexedDB (`DigitalDAM` database, `handles` store) so the folder survives page reloads. Browsers require a user gesture to re-grant access, so on reload the app stays in Local mode and shows a **Reconnect folder** prompt (`showReconnectPrompt` renders the card; `reconnectLocalFolder()` re-grants the saved handle on click, falling back to a fresh `chooseLocalFolder()`).
 - **Object URLs** — on load, each local file is read and wrapped in a `blob:` object URL via `localResolveObjectURLs()`. These live in `displayAssets[]` (a mirror of `allAssets[]` with only `blobUrl` swapped). Object URLs are revoked on mode switch, on delete, and on `beforeunload`.
 - **Browser requirement** — Local mode requires Chrome or Edge (File System Access API). The Local toggle is disabled on unsupported browsers.
 
@@ -114,6 +127,16 @@ The add modal accepts multiple files via the file input (`multiple` attribute) o
 - **2+ files**: file name field is hidden (each asset is named from its filename), a scrollable file list replaces the banner, the save button reads "Save N Assets", and suggestions are fetched from the first image in the batch. Tags entered apply to all files.
 - Files are uploaded and saved sequentially; the button shows "Uploading 2 of 5…" progress.
 
+## Native Desktop Features (Electron)
+
+Active only when `window.electronAPI` is present (the Electron shell). In a plain browser these are inert/hidden and existing behavior is unchanged — all new code is feature-detected.
+
+- **`API_BASE`** — `window.electronAPI?.apiBase ?? ''`, prefixed onto all six `api*` fetch calls so Cloud `/api/*` resolves under `app://`. Empty string (relative, unchanged) in the browser.
+- **Multi-asset drag-out** — cards are `draggable` only in Electron. `webContents.startDrag` must fire synchronously inside the drag gesture, so files are **pre-staged on `pointerdown`** (`prepareDrag` → `electronAPI.prepareDrag(specs)` → temp paths cached in `dragPrep`) and the drag fires on `dragstart` (`electronAPI.beginDrag(paths, icon)`). The cursor icon is the dragged asset's thumbnail re-encoded **WebP→PNG** via canvas (`dragIconPngForIds`), since `nativeImage` can't decode WebP; non-images fall back to the document icon.
+- **Copy as files** — `btnBulkCopy` routes to `electronAPI.copyFiles` (Finder-pasteable real files) instead of the browser's clipboard-image/URL behavior.
+- **Save to folder…** — `btnBulkSaveToFolder` (shown only in Electron) opens a native folder dialog and copies the selected assets in.
+- **Spec sourcing** — `buildExportSpecs(ids)` builds `{id, filename, url}` (Cloud) or `{id, filename, bytes}` (Local, read from the `displayAssets` object URL); all three actions stage via these specs. Targets resolve through `exportTargetIds(id)` (the selection if the acted-on card is selected, else just that card).
+
 ## Environment Variables
 
 - **`BLOB_READ_WRITE_TOKEN`** — Vercel Blob read/write token. Set in Vercel project settings (auto-injected at runtime). For local dev, add to `.env.local`.
@@ -128,6 +151,16 @@ vercel dev
 ```
 
 Runs the frontend and API routes locally with environment variables injected from Vercel.
+
+For the Electron desktop shell:
+
+```
+npm run electron   # launch the desktop app (loads the bundled index.html)
+npm test           # run the electron module unit tests (node:test)
+npm run dist       # build the unsigned macOS .dmg into dist-electron/
+```
+
+Set `API_BASE` for Cloud mode in `electron/config.cjs` (or the `DAM_API_BASE` env var) to your Vercel deployment origin.
 
 ## Deployment
 
@@ -210,5 +243,7 @@ Open/close by toggling `.open` on the overlay element. Always wire up: close but
 - **Tag normalization**: All tags are lowercased on entry (`addTag` function).
 - **Local mode browser support**: Requires Chrome or Edge (File System Access API). The Local toggle is automatically disabled on unsupported browsers.
 - **Local mode — no migration**: Switching between Cloud and Local modes starts fresh in the new store. Assets from the previous mode are not transferred.
-- **Local mode — permission on reload**: The browser may require the user to re-grant folder access after a page reload. If permission is denied, the app silently falls back to Cloud mode.
+- **Local mode — permission on reload**: Browsers require a user gesture to re-grant folder access after a reload, so the app stays in Local mode and shows a **Reconnect folder** prompt (`showReconnectPrompt` / `reconnectLocalFolder`) rather than falling back to Cloud.
 - **AI tag suggestions in local mode**: `apiSuggestTags` always calls the cloud endpoint regardless of storage mode — an internet connection is still required for AI suggestions.
+- **Electron — macOS only**: Native drag/copy use macOS-specific APIs (`NSFilenamesPboardType`, named system images) and packaging targets a macOS arm64 `.dmg`. The `.dmg` is unsigned (right-click → Open on first launch).
+- **Electron — drag staging**: Drag-out copies files to a temp dir first (Cloud downloads from Vercel Blob; Local copies from disk). Large/many files go over IPC and aren't streamed — fine for images, slower for big video sets.
