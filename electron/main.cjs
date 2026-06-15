@@ -4,6 +4,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { stage } = require('./staging.cjs');
 const { startDrag, copyFiles, saveToFolder } = require('./native-ops.cjs');
+const { API_BASE } = require('./config.cjs');
 
 // Repo root holds index.html (one level up from electron/).
 const APP_ROOT = path.join(__dirname, '..');
@@ -24,6 +25,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Pass config to the sandboxed preload via argv — a sandboxed preload
+      // cannot require() local files like ./config.cjs.
+      additionalArguments: [`--dam-api-base=${API_BASE}`],
     },
   });
   mainWindow.loadURL('app://bundle/index.html');
