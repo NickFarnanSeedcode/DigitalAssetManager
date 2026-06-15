@@ -9,7 +9,7 @@ const API_BASE = apiArg.slice('--dam-api-base='.length);
 contextBridge.exposeInMainWorld('electronAPI', {
   apiBase:      API_BASE,
   prepareDrag:  (specs) => ipcRenderer.invoke('prepare-drag', specs), // stage, return paths
-  beginDrag:    (paths) => ipcRenderer.send('begin-drag', paths),     // fire startDrag now
+  beginDrag:    (paths, icon) => ipcRenderer.send('begin-drag', { paths, icon }), // fire startDrag now
   copyFiles:    (specs) => ipcRenderer.invoke('stage-and-copy', specs),
   saveToFolder: (specs) => ipcRenderer.invoke('stage-and-save', specs),
 });

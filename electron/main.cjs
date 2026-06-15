@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, protocol, net, ipcMain } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { stage } = require('./staging.cjs');
@@ -58,10 +58,19 @@ app.whenReady().then(() => {
     return paths;
   });
 
-  ipcMain.on('begin-drag', (e, paths) => {
-    if (Array.isArray(paths) && paths.length) {
-      startDrag(e.sender, paths); // native-ops supplies the macOS document icon
+  ipcMain.on('begin-drag', (e, { paths, icon } = {}) => {
+    if (!Array.isArray(paths) || !paths.length) return;
+    // Use the asset's thumbnail as the drag icon when it decodes; otherwise
+    // native-ops falls back to the macOS document icon. Never let a bad
+    // thumbnail throw and break the drag.
+    let dragIcon = null;
+    if (icon) {
+      try {
+        const img = nativeImage.createFromDataURL(icon);
+        if (!img.isEmpty()) dragIcon = img;
+      } catch {}
     }
+    startDrag(e.sender, paths, dragIcon);
   });
 
   ipcMain.handle('stage-and-copy', async (e, specs) => {

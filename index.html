@@ -1689,17 +1689,29 @@ async function verifyDirPermission(handle) {
     }
 }
 
-async function switchToCloud() {
-    storageMode    = 'cloud';
-    localDirHandle = null;
-    localStorage.setItem('storageMode', 'cloud');
-    try { await localDB.setHandle(null); } catch {}
-    allAssets    = [];
-    displayAssets = [];
-    try { allAssets = await apiGetAll(); } catch {}
-    renderGrid(allAssets);
-    syncSettingsUI();
+// Shown when a local folder is configured but its permission can't be restored
+// automatically on load (browsers require a user gesture to re-grant).
+function showReconnectPrompt() {
+    assetCount.textContent = '0 assets';
+    sectionSub.textContent = 'Local folder needs reconnecting';
+    assetGrid.innerHTML = `
+        <div class="state-box">
+            <div class="icon-wrap">${svgGrid()}</div>
+            <h3>Reconnect your local folder</h3>
+            <p>Your browser needs permission again to read your local assets. Click below to reconnect.</p>
+            <button class="btn-add" style="margin-top:18px" onclick="reconnectLocalFolder()">Reconnect folder</button>
+        </div>`;
 }
+
+window.reconnectLocalFolder = async function() {
+    let ok = false;
+    if (localDirHandle) {
+        try { ok = (await localDirHandle.requestPermission({ mode: 'readwrite' })) === 'granted'; }
+        catch { ok = false; }
+    }
+    if (!ok) ok = await chooseLocalFolder();   // re-grant denied/failed → let them pick a folder
+    if (ok) await reloadAssetsForMode();
+};
 
 /* ─── API Dispatchers ────────────────────────────────────────────────────── */
 async function dispatchGetAll() {
@@ -1780,8 +1792,7 @@ const btnSave     = $('btnSave');
         if (localDirHandle) {
             const ok = await verifyDirPermission(localDirHandle);
             if (!ok) {
-                showToast('Folder access was lost. Switched to Cloud mode.', 'error');
-                await switchToCloud();
+                showReconnectPrompt();
                 return;
             }
         } else {
@@ -1951,13 +1962,22 @@ window.handleCardClick = function(id, e) {
 // Native drag-out is two-phase: stage files on pointerdown (so they're ready),
 // then fire startDrag synchronously on dragstart. startDrag must run inside the
 // drag gesture — staging during dragstart is too late and the drag never starts.
-let dragPrep = { key: null, paths: null, pending: false };
+let dragPrep = { key: null, paths: null, pending: false, icon: null };
+
+// First available thumbnail in the target set — used as the drag cursor icon.
+function dragIconForIds(ids) {
+  for (const id of ids) {
+    const a = allAssets.find((x) => x.id === id);
+    if (a?.thumbnail) return a.thumbnail;
+  }
+  return null;
+}
 
 function prepareDrag(id) {
   const ids = exportTargetIds(id);
   const key = ids.join(',');
   if (dragPrep.key === key && (dragPrep.paths || dragPrep.pending)) return; // already staged/staging
-  dragPrep = { key, paths: null, pending: true };
+  dragPrep = { key, paths: null, pending: true, icon: dragIconForIds(ids) };
   buildExportSpecs(ids)
     .then((specs) => window.electronAPI.prepareDrag(specs))
     .then((paths) => { if (dragPrep.key === key) { dragPrep.paths = paths; dragPrep.pending = false; } })
@@ -1974,15 +1994,16 @@ window.handleCardPointerDown = function(id, event) {
 window.handleCardDragStart = function(id, event) {
   if (!window.electronAPI) return;     // browser: keep default behavior
   event.preventDefault();
-  const key = exportTargetIds(id).join(',');
+  const ids = exportTargetIds(id);
+  const key = ids.join(',');
   if (dragPrep.key === key && dragPrep.paths) {
-    window.electronAPI.beginDrag(dragPrep.paths);   // ready: fire immediately (in-gesture)
+    window.electronAPI.beginDrag(dragPrep.paths, dragPrep.icon);   // ready: fire immediately (in-gesture)
     return;
   }
   // Fallback when staging hasn't finished yet (e.g. a very fast drag).
-  buildExportSpecs(exportTargetIds(id))
+  buildExportSpecs(ids)
     .then((specs) => window.electronAPI.prepareDrag(specs))
-    .then((paths) => window.electronAPI.beginDrag(paths))
+    .then((paths) => window.electronAPI.beginDrag(paths, dragIconForIds(ids)))
     .catch((err) => { console.error('Drag export failed', err); showToast('Drag failed.', 'error'); });
 };
 
