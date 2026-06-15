@@ -1467,33 +1467,34 @@ const API_BASE = window.electronAPI?.apiBase ?? '';
 
 // Filename presented to the OS: display name with its extension.
 function osFilename(a) {
-  const ext = (a.ext || '').replace(/^\./, '');
-  const base = a.name || a.id;
-  return ext && !base.toLowerCase().endsWith('.' + ext.toLowerCase()) ? `${base}.${ext}` : base;
+    const ext = (a.ext || '').replace(/^\./, '');
+    const base = a.name || a.id;
+    return ext && !base.toLowerCase().endsWith('.' + ext.toLowerCase()) ? `${base}.${ext}` : base;
 }
 
 // Build native export specs for a list of asset ids.
 // Cloud → { url }; Local → { bytes } read from the displayAssets object URL.
 async function buildExportSpecs(ids) {
-  const specs = [];
-  for (const id of ids) {
-    const a = allAssets.find((x) => x.id === id);
-    if (!a) continue;
-    const filename = osFilename(a);
-    if (storageMode === 'local') {
-      const d = displayAssets.find((x) => x.id === id) || a;
-      const res = await fetch(d.blobUrl);
-      specs.push({ id, filename, bytes: new Uint8Array(await res.arrayBuffer()) });
-    } else {
-      specs.push({ id, filename, url: a.blobUrl });
+    const specs = [];
+    for (const id of ids) {
+        const a = allAssets.find((x) => x.id === id);
+        if (!a) continue;
+        const filename = osFilename(a);
+        if (storageMode === 'local') {
+            const d = displayAssets.find((x) => x.id === id);
+            if (!d?.blobUrl?.startsWith('blob:')) throw new Error(`Object URL not available for asset ${id}`);
+            const res = await fetch(d.blobUrl);
+            specs.push({ id, filename, bytes: new Uint8Array(await res.arrayBuffer()) });
+        } else {
+            specs.push({ id, filename, url: a.blobUrl });
+        }
     }
-  }
-  return specs;
+    return specs;
 }
 
 // Resolve which ids an export action targets, given the asset the user acted on.
 function exportTargetIds(id) {
-  return selectedAssetIds.has(id) && selectedAssetIds.size > 0 ? [...selectedAssetIds] : [id];
+    return selectedAssetIds.has(id) ? [...selectedAssetIds] : [id];
 }
 
 async function apiGetAll() {
