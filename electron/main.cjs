@@ -1,7 +1,9 @@
 // electron/main.cjs
-const { app, BrowserWindow, protocol, net } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { stage } = require('./staging.cjs');
+const { startDrag, copyFiles, saveToFolder } = require('./native-ops.cjs');
 
 // Repo root holds index.html (one level up from electron/).
 const APP_ROOT = path.join(__dirname, '..');
@@ -39,6 +41,32 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+
+  const stagedDirs = [];
+
+  ipcMain.handle('stage-and-drag', async (e, specs) => {
+    const { dir, paths } = await stage(specs);
+    stagedDirs.push(dir);
+    startDrag(e.sender, paths, nativeImage.createEmpty());
+    return { dragged: paths.length };
+  });
+
+  ipcMain.handle('stage-and-copy', async (e, specs) => {
+    const { dir, paths } = await stage(specs);
+    stagedDirs.push(dir);
+    return { copied: copyFiles(paths) };
+  });
+
+  ipcMain.handle('stage-and-save', async (e, specs) => {
+    const { dir, paths } = await stage(specs);
+    stagedDirs.push(dir);
+    return saveToFolder(BrowserWindow.fromWebContents(e.sender), paths);
+  });
+
+  app.on('window-all-closed', () => {
+    const fs = require('fs');
+    for (const d of stagedDirs) fs.rmSync(d, { recursive: true, force: true });
   });
 });
 

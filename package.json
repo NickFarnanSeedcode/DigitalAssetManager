@@ -12,6 +12,7 @@
     "electron-builder": "^24.13.3"
   },
   "scripts": {
-    "electron": "electron electron/main.cjs"
+    "electron": "electron electron/main.cjs",
+    "test": "node --test electron/staging.test.cjs electron/native-ops.test.cjs"
   }
 }
