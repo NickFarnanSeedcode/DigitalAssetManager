@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DigitalAssetManager</title>
+    <title>AtlasForge</title>
     <style>
         :root {
             --bg-primary:    #0B0D1A;
@@ -49,7 +49,7 @@
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            padding: 0 28px;
+            padding: 0 28px 0 5px;
             gap: 20px;
             z-index: 100;
         }
@@ -57,23 +57,30 @@
         .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 1px;
             flex-shrink: 0;
             text-decoration: none;
         }
 
         .logo-icon {
-            width: 34px;
-            height: 34px;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+            width: 80px;
+            height: 80px;
             border-radius: 9px;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
         .logo-text {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 700;
             letter-spacing: -0.4px;
             color: var(--text-primary);
@@ -1162,14 +1169,9 @@
 <header class="topbar">
     <div class="logo">
         <div class="logo-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-            </svg>
+            <img src="assets/logo.png" alt="AtlasForge">
         </div>
-        <span class="logo-text">Digital<em>DAM</em></span>
+        <span class="logo-text">Atlas<em>Forge</em></span>
     </div>
 
     <div class="divider"></div>
@@ -1426,7 +1428,7 @@
                 <span class="settings-row-title">Local Folder</span>
                 <span id="localFolderName" class="settings-row-desc">No folder selected</span>
             </div>
-            <button class="btn-cancel" id="btnChooseFolder" style="font-size:12px;padding:6px 14px;flex-shrink:0;" onclick="chooseLocalFolder()">
+            <button class="btn-cancel" id="btnChooseFolder" style="font-size:12px;padding:6px 14px;flex-shrink:0;">
                 Choose Folder
             </button>
         </div>
@@ -1602,6 +1604,10 @@ const localDB = (() => {
 
 /* ─── Local Storage API ──────────────────────────────────────────────────── */
 async function localReadManifest() {
+    if (electronLocal) {
+        try { return await electronLocal.readManifest(localDirPath); }
+        catch { return { assets: [] }; }
+    }
     try {
         const fh   = await localDirHandle.getFileHandle('dam_data.json');
         const file = await fh.getFile();
@@ -1613,6 +1619,7 @@ async function localReadManifest() {
 }
 
 async function localWriteManifest(data) {
+    if (electronLocal) return electronLocal.writeManifest(localDirPath, data);
     const fh       = await localDirHandle.getFileHandle('dam_data.json', { create: true });
     const writable = await fh.createWritable();
     await writable.write(JSON.stringify(data, null, 2));
@@ -1625,6 +1632,10 @@ async function localGetAll() {
 }
 
 async function localCopyFile(file, filename) {
+    if (electronLocal) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return electronLocal.writeFile(localDirPath, filename, bytes);
+    }
     const fh       = await localDirHandle.getFileHandle(filename, { create: true });
     const writable = await fh.createWritable();
     await writable.write(file);
@@ -1650,7 +1661,10 @@ async function localDelete(id) {
     const manifest = await localReadManifest();
     const asset    = manifest.assets.find(a => a.id === id);
     if (asset?.blobUrl) {
-        try { await localDirHandle.removeEntry(asset.blobUrl); } catch (e) {
+        try {
+            if (electronLocal) await electronLocal.deleteFile(localDirPath, asset.blobUrl);
+            else               await localDirHandle.removeEntry(asset.blobUrl);
+        } catch (e) {
             console.warn('[local] Could not remove file:', asset.blobUrl, e);
         }
     }
@@ -1662,9 +1676,16 @@ async function localResolveObjectURLs(assets) {
     const resolved = [];
     for (const a of assets) {
         try {
-            const fh   = await localDirHandle.getFileHandle(a.blobUrl);
-            const file = await fh.getFile();
-            const url  = URL.createObjectURL(file);
+            let url;
+            if (electronLocal) {
+                const bytes = await electronLocal.readFile(localDirPath, a.blobUrl);
+                const blob  = new Blob([bytes], { type: a.fileType || 'application/octet-stream' });
+                url = URL.createObjectURL(blob);
+            } else {
+                const fh   = await localDirHandle.getFileHandle(a.blobUrl);
+                const file = await fh.getFile();
+                url = URL.createObjectURL(file);
+            }
             resolved.push({ ...a, blobUrl: url, _localFilename: a.blobUrl });
         } catch {
             resolved.push({ ...a });
@@ -1759,8 +1780,10 @@ let lastSelectedId   = null;
 let bulkTags         = [];
 
 // Storage mode state
-let storageMode    = localStorage.getItem('storageMode') || 'cloud';
-let localDirHandle = null;
+let storageMode    = localStorage.getItem('storageMode') || 'local';
+let localDirHandle = null;                                    // browser FS Access API
+const electronLocal = window.electronAPI?.local || null;      // Electron Node-fs IPC bridge
+let localDirPath   = electronLocal ? (localStorage.getItem('localDirPath') || null) : null;
 let displayAssets  = []; // allAssets with object URLs swapped in for local mode
 
 /* ─── DOM ────────────────────────────────────────────────────────────────── */
@@ -1784,21 +1807,30 @@ const btnSave     = $('btnSave');
 /* ─── Boot ───────────────────────────────────────────────────────────────── */
 (async () => {
     if (storageMode === 'local') {
-        try { localDirHandle = await localDB.getHandle(); } catch (e) {
-            console.warn('[boot] IndexedDB read failed:', e);
-            localDirHandle = null;
-        }
-
-        if (localDirHandle) {
-            const ok = await verifyDirPermission(localDirHandle);
-            if (!ok) {
-                showReconnectPrompt();
+        if (electronLocal) {
+            // Node fs has no permission prompt — the saved path just works.
+            if (!localDirPath) {
+                renderGrid([]);
+                showToast('Choose a local folder in Settings to get started.', 'error');
                 return;
             }
         } else {
-            renderGrid([]);
-            showToast('Choose a local folder in Settings to get started.', 'error');
-            return;
+            try { localDirHandle = await localDB.getHandle(); } catch (e) {
+                console.warn('[boot] IndexedDB read failed:', e);
+                localDirHandle = null;
+            }
+
+            if (localDirHandle) {
+                const ok = await verifyDirPermission(localDirHandle);
+                if (!ok) {
+                    showReconnectPrompt();
+                    return;
+                }
+            } else {
+                renderGrid([]);
+                showToast('Choose a local folder in Settings to get started.', 'error');
+                return;
+            }
         }
     }
 
@@ -2346,12 +2378,19 @@ $('btnCancel').addEventListener('click', closeModal);
 $('btnModalDownload').addEventListener('click', async () => {
     if (storageMode === 'local') {
         const canonAsset = allAssets.find(a => a.id === editingId);
-        if (!canonAsset?.blobUrl || !localDirHandle) return;
+        if (!canonAsset?.blobUrl) return;
+        if (!electronLocal && !localDirHandle) return;
         try {
-            const fh       = await localDirHandle.getFileHandle(canonAsset.blobUrl);
-            const file     = await fh.getFile();
+            let file;
+            if (electronLocal) {
+                const bytes = await electronLocal.readFile(localDirPath, canonAsset.blobUrl);
+                file = new Blob([bytes], { type: canonAsset.fileType || 'application/octet-stream' });
+            } else {
+                const fh = await localDirHandle.getFileHandle(canonAsset.blobUrl);
+                file = await fh.getFile();
+            }
             const saveHandle = await window.showSaveFilePicker({ suggestedName: canonAsset.blobUrl });
-            const w        = await saveHandle.createWritable();
+            const w          = await saveHandle.createWritable();
             await w.write(file);
             await w.close();
             showToast('File saved.', 'success');
@@ -2384,6 +2423,14 @@ $('btnCloseSettings').addEventListener('click', closeSettingsModal);
 $('btnSettingsClose').addEventListener('click', closeSettingsModal);
 $('settingsOverlay').addEventListener('click', e => { if (e.target === $('settingsOverlay')) closeSettingsModal(); });
 
+// Picking a folder from Settings (the user is already in Local mode) needs to
+// reload — setStorageMode chains the reload itself, but the standalone button
+// did not, leaving an empty grid until the next launch.
+$('btnChooseFolder').addEventListener('click', async () => {
+    const ok = await chooseLocalFolder();
+    if (ok) await reloadAssetsForMode();
+});
+
 function openSettingsModal() {
     syncSettingsUI();
     $('settingsOverlay').classList.add('open');
@@ -2397,12 +2444,14 @@ function syncSettingsUI() {
     $('btnModeCloud').classList.toggle('active', storageMode === 'cloud');
     $('btnModeLocal').classList.toggle('active', storageMode === 'local');
     $('localFolderRow').style.display = storageMode === 'local' ? '' : 'none';
-    if (storageMode === 'local' && localDirHandle) {
+    if (storageMode === 'local' && electronLocal && localDirPath) {
+        $('localFolderName').textContent = localDirPath.split(/[\\/]/).pop() || localDirPath;
+    } else if (storageMode === 'local' && localDirHandle) {
         $('localFolderName').textContent = localDirHandle.name;
     } else if (storageMode === 'local') {
         $('localFolderName').textContent = 'No folder selected';
     }
-    if (!window.showDirectoryPicker) {
+    if (!electronLocal && !window.showDirectoryPicker) {
         $('btnModeLocal').disabled = true;
         $('btnModeLocal').title    = 'Your browser does not support local folder access. Use Chrome or Edge.';
     }
@@ -2429,6 +2478,21 @@ async function setStorageMode(mode) {
 }
 
 async function chooseLocalFolder() {
+    if (electronLocal) {
+        try {
+            const dirPath = await electronLocal.pickFolder();
+            if (!dirPath) return false;
+            localDirPath = dirPath;
+            localStorage.setItem('localDirPath', dirPath);
+            syncSettingsUI();
+            $('toast').classList.remove('show');
+            return true;
+        } catch (err) {
+            console.error('[chooseLocalFolder]', err);
+            showToast('Could not access the selected folder.', 'error');
+            return false;
+        }
+    }
     if (!window.showDirectoryPicker) {
         showToast('Your browser does not support local folder access. Use Chrome or Edge.', 'error');
         return false;
@@ -2438,6 +2502,7 @@ async function chooseLocalFolder() {
         localDirHandle = handle;
         await localDB.setHandle(handle);
         syncSettingsUI();
+        $('toast').classList.remove('show');
         return true;
     } catch (err) {
         if (err.name === 'AbortError') return false;
@@ -2787,7 +2852,7 @@ btnSave.addEventListener('click', async () => {
     }
 
     // Add mode
-    if (storageMode === 'local' && !localDirHandle) {
+    if (storageMode === 'local' && !(electronLocal ? localDirPath : localDirHandle)) {
         showToast('Please choose a local folder in Settings first.', 'error');
         return;
     }

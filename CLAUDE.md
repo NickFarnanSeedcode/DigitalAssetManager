@@ -68,11 +68,14 @@ Two modes, selectable in Settings → Storage. Switching modes does not migrate 
 - **Vercel Blob** — `files/{id}.{ext}` — the actual uploaded file for each asset.
 
 **Local mode**:
-- **Designated folder** (user-selected via `showDirectoryPicker`) — files are stored as `{id}.{ext}` directly in this folder.
+- **Designated folder** — files are stored as `{id}.{ext}` directly in this folder. In Electron the folder is chosen via the native dialog (`local:pickFolder` IPC); in the browser via `showDirectoryPicker`.
 - **`dam_data.json`** — lives in the same folder; contains `{ assets: [...] }` with the full asset records. The `blobUrl` field stores the filename (`{id}.{ext}`) rather than a remote URL.
-- **Folder handle persistence** — the `FileSystemDirectoryHandle` is stored in IndexedDB (`DigitalDAM` database, `handles` store) so the folder survives page reloads. Browsers require a user gesture to re-grant access, so on reload the app stays in Local mode and shows a **Reconnect folder** prompt (`showReconnectPrompt` renders the card; `reconnectLocalFolder()` re-grants the saved handle on click, falling back to a fresh `chooseLocalFolder()`).
+- **Folder access** — handled differently depending on host:
+  - **Electron** (the shipped app): Local-mode IO goes through `window.electronAPI.local` (Node `fs` over IPC). The folder path is persisted in `localStorage` under `localDirPath` and reopens silently on launch — no reconnect prompt.
+  - **Browser** (`vercel dev` / web): uses the File System Access API. The `FileSystemDirectoryHandle` is stored in IndexedDB (`DigitalDAM` database, `handles` store). Browsers require a user gesture to re-grant access, so on reload the app shows a **Reconnect folder** prompt (`showReconnectPrompt` / `reconnectLocalFolder`).
+  - Both paths share the same `local*` helpers — they branch on the `electronLocal` constant (`window.electronAPI?.local`).
 - **Object URLs** — on load, each local file is read and wrapped in a `blob:` object URL via `localResolveObjectURLs()`. These live in `displayAssets[]` (a mirror of `allAssets[]` with only `blobUrl` swapped). Object URLs are revoked on mode switch, on delete, and on `beforeunload`.
-- **Browser requirement** — Local mode requires Chrome or Edge (File System Access API). The Local toggle is disabled on unsupported browsers.
+- **Browser requirement** — In a plain browser, Local mode requires Chrome or Edge (File System Access API). In Electron, all platforms are supported via Node `fs`.
 
 ## Key Data Shape
 
@@ -241,9 +244,9 @@ Open/close by toggling `.open` on the overlay element. Always wire up: close but
 - **Thumbnail size**: Thumbnails are stored as base64 in the `thumbnail` column. Large collections may produce a sizeable Supabase response payload.
 - **Edit modal**: Intentionally does not allow re-uploading a file — only name and tags are editable. Multi-file selection is not available in edit mode (one asset at a time).
 - **Tag normalization**: All tags are lowercased on entry (`addTag` function).
-- **Local mode browser support**: Requires Chrome or Edge (File System Access API). The Local toggle is automatically disabled on unsupported browsers.
+- **Local mode browser support**: In a plain browser, Local mode requires Chrome or Edge (File System Access API); the Local toggle is automatically disabled on unsupported browsers. In Electron, Node `fs` is used instead, so any platform works.
 - **Local mode — no migration**: Switching between Cloud and Local modes starts fresh in the new store. Assets from the previous mode are not transferred.
-- **Local mode — permission on reload**: Browsers require a user gesture to re-grant folder access after a reload, so the app stays in Local mode and shows a **Reconnect folder** prompt (`showReconnectPrompt` / `reconnectLocalFolder`) rather than falling back to Cloud.
+- **Local mode — permission on reload (browser only)**: In a plain browser, re-granting folder access requires a user gesture, so the app shows a **Reconnect folder** prompt on reload. In Electron there is no such prompt — Node `fs` reopens the saved folder silently.
 - **AI tag suggestions in local mode**: `apiSuggestTags` always calls the cloud endpoint regardless of storage mode — an internet connection is still required for AI suggestions.
 - **Electron — macOS only**: Native drag/copy use macOS-specific APIs (`NSFilenamesPboardType`, named system images) and packaging targets a macOS arm64 `.dmg`. The `.dmg` is unsigned (right-click → Open on first launch).
 - **Electron — drag staging**: Drag-out copies files to a temp dir first (Cloud downloads from Vercel Blob; Local copies from disk). Large/many files go over IPC and aren't streamed — fine for images, slower for big video sets.

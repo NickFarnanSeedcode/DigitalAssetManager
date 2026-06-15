@@ -12,4 +12,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   beginDrag:    (paths, icon) => ipcRenderer.send('begin-drag', { paths, icon }), // fire startDrag now
   copyFiles:    (specs) => ipcRenderer.invoke('stage-and-copy', specs),
   saveToFolder: (specs) => ipcRenderer.invoke('stage-and-save', specs),
+  // Local-mode file IO over Node fs. Bypasses the File System Access API
+  // (no permission prompt on launch).
+  local: {
+    pickFolder:     ()                          => ipcRenderer.invoke('local:pickFolder'),
+    readManifest:   (dirPath)                   => ipcRenderer.invoke('local:readManifest',  dirPath),
+    writeManifest:  (dirPath, data)             => ipcRenderer.invoke('local:writeManifest', dirPath, data),
+    writeFile:      (dirPath, filename, bytes)  => ipcRenderer.invoke('local:writeFile',     dirPath, filename, bytes),
+    readFile:       (dirPath, filename)         => ipcRenderer.invoke('local:readFile',      dirPath, filename),
+    deleteFile:     (dirPath, filename)         => ipcRenderer.invoke('local:deleteFile',    dirPath, filename),
+  },
 });

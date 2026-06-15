@@ -1,10 +1,23 @@
 // electron/main.cjs
-const { app, BrowserWindow, protocol, net, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain, nativeImage, dialog } = require('electron');
 const path = require('path');
+const fsp = require('fs/promises');
 const { pathToFileURL } = require('url');
 const { stage } = require('./staging.cjs');
 const { startDrag, copyFiles, saveToFolder } = require('./native-ops.cjs');
 const { API_BASE } = require('./config.cjs');
+
+// Reject filenames that try to escape the local-mode folder. Asset filenames
+// are always "{uuid}.{ext}" so anything with a separator is a bug or attack.
+function safeJoin(dirPath, filename) {
+  if (typeof dirPath !== 'string' || typeof filename !== 'string') {
+    throw new Error('Invalid path');
+  }
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
+    throw new Error(`Invalid filename: ${filename}`);
+  }
+  return path.join(dirPath, filename);
+}
 
 // Repo root holds index.html (one level up from electron/).
 const APP_ROOT = path.join(__dirname, '..');
@@ -83,6 +96,51 @@ app.whenReady().then(() => {
     const { dir, paths } = await stage(specs);
     stagedDirs.push(dir);
     return saveToFolder(BrowserWindow.fromWebContents(e.sender), paths);
+  });
+
+  // Local-mode file IO. Node fs has no permission prompt, so the app reopens
+  // its saved folder silently on launch — no reconnect dance.
+  ipcMain.handle('local:pickFolder', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('local:readManifest', async (e, dirPath) => {
+    try {
+      const text = await fsp.readFile(path.join(dirPath, 'dam_data.json'), 'utf8');
+      return JSON.parse(text);
+    } catch (err) {
+      if (err.code === 'ENOENT') return { assets: [] };
+      throw err;
+    }
+  });
+
+  ipcMain.handle('local:writeManifest', async (e, dirPath, data) => {
+    await fsp.writeFile(
+      path.join(dirPath, 'dam_data.json'),
+      JSON.stringify(data, null, 2),
+      'utf8'
+    );
+  });
+
+  ipcMain.handle('local:writeFile', async (e, dirPath, filename, bytes) => {
+    await fsp.writeFile(safeJoin(dirPath, filename), Buffer.from(bytes));
+  });
+
+  ipcMain.handle('local:readFile', async (e, dirPath, filename) => {
+    return await fsp.readFile(safeJoin(dirPath, filename));
+  });
+
+  ipcMain.handle('local:deleteFile', async (e, dirPath, filename) => {
+    try {
+      await fsp.unlink(safeJoin(dirPath, filename));
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
   });
 
   app.on('window-all-closed', () => {
