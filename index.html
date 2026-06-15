@@ -1,0 +1,2918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DigitalAssetManager</title>
+    <style>
+        :root {
+            --bg-primary:    #0B0D1A;
+            --bg-secondary:  #111320;
+            --bg-card:       #151828;
+            --bg-card-hover: #1B1F35;
+            --border:        #232840;
+            --border-light:  #2D3455;
+            --accent:        #00D4A8;
+            --accent-hover:  #00EFC0;
+            --accent-muted:  rgba(0, 212, 168, 0.12);
+            --accent-glow:   rgba(0, 212, 168, 0.08);
+            --purple:        #7B5EFF;
+            --text-primary:  #F0F2FF;
+            --text-secondary:#8892B4;
+            --text-muted:    #404870;
+            --tag-bg:        #1C2245;
+            --tag-text:      #7B9FE0;
+            --danger:        #FF4D6A;
+            --danger-muted:  rgba(255, 77, 106, 0.12);
+            --shadow-card:   0 4px 24px rgba(0,0,0,0.45);
+            --shadow-modal:  0 24px 80px rgba(0,0,0,0.6);
+            --radius-card:   16px;
+            --radius-input:  10px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── TOP BAR ── */
+        .topbar {
+            position: fixed;
+            inset: 0 0 auto 0;
+            height: 64px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 28px;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            color: var(--text-primary);
+        }
+
+        .logo-text em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+
+        .search-wrap {
+            flex: 1;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .search-wrap svg {
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            background: var(--border-light);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: none;
+            padding: 0;
+            transition: background .15s, color .15s;
+        }
+
+        .search-clear.visible { display: block; }
+
+        .search-clear svg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .search-clear:hover { background: var(--danger-muted); color: var(--danger); }
+
+        #searchInput {
+            width: 100%;
+            height: 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            padding: 0 36px 0 42px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        #searchInput::placeholder { color: var(--text-muted); }
+
+        #searchInput:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-muted);
+        }
+
+        .topbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-shrink: 0;
+        }
+
+        .asset-count {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .btn-add {
+            height: 40px;
+            padding: 0 18px;
+            background: var(--accent);
+            color: #091512;
+            border: none;
+            border-radius: var(--radius-input);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            transition: background .2s, transform .1s, box-shadow .2s;
+            letter-spacing: -0.1px;
+        }
+
+        .btn-add:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 20px rgba(0, 212, 168, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-add:active { transform: translateY(0); }
+
+        .btn-settings {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .2s, border-color .2s, color .2s, transform .1s;
+            flex-shrink: 0;
+        }
+
+        .btn-settings:hover {
+            background: var(--bg-card);
+            border-color: var(--border-light);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .btn-settings:active { transform: translateY(0); }
+
+        /* ── SETTINGS MODAL ── */
+        .settings-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 24px 0 12px;
+        }
+
+        .settings-section-label:first-child { margin-top: 0; }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            margin-bottom: 8px;
+        }
+
+        .settings-row-info { display: flex; flex-direction: column; gap: 3px; }
+
+        .settings-row-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .settings-row-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .settings-placeholder {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .storage-toggle-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .storage-mode-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+
+        .storage-mode-btn:hover {
+            border-color: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .storage-mode-btn.active {
+            background: var(--accent-muted);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .storage-mode-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ── MAIN ── */
+        .main {
+            margin-top: 64px;
+            padding: 32px 28px 48px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .btn-sort {
+            height: 34px;
+            padding: 0 13px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: border-color .2s, color .2s;
+            white-space: nowrap;
+        }
+
+        .btn-sort:hover { border-color: var(--border-light); color: var(--text-primary); }
+
+        .btn-sort svg { transition: transform .25s; }
+        .btn-sort.desc svg { transform: scaleY(-1); }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+        }
+
+        .section-sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 3px;
+        }
+
+        /* ── GRID ── */
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 18px;
+        }
+
+        /* ── CARD ── */
+        .asset-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-card);
+            overflow: hidden;
+            transition: border-color .2s, transform .2s, box-shadow .2s;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .asset-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,212,168,0.1), var(--shadow-card);
+        }
+
+        .card-thumb {
+            width: 100%;
+            height: 165px;
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .file-icon-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-icon-wrap svg {
+            width: 44px;
+            height: 44px;
+            color: var(--text-muted);
+        }
+
+        .file-ext-badge {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            background: var(--tag-bg);
+            padding: 3px 9px;
+            border-radius: 5px;
+        }
+
+        /* colored ext badges */
+        .ext-pdf  { background: rgba(255,77,106,.15); color: #FF8096; }
+        .ext-mp4, .ext-mov, .ext-avi, .ext-webm { background: rgba(123,94,255,.2); color: #A48CFF; }
+        .ext-ai, .ext-psd, .ext-xd, .ext-fig { background: rgba(255,166,0,.15); color: #FFB340; }
+        .ext-zip, .ext-rar, .ext-7z { background: rgba(0,180,255,.15); color: #40C8FF; }
+
+        .card-actions {
+            position: absolute;
+            top: 9px;
+            right: 9px;
+            display: flex;
+            gap: 6px;
+            opacity: 0;
+            transition: opacity .2s;
+        }
+
+        .asset-card:hover .card-actions { opacity: 1; }
+
+        .action-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(11,13,26,.82);
+            backdrop-filter: blur(6px);
+            color: var(--text-secondary);
+            transition: background .15s, color .15s;
+        }
+
+        .action-btn.edit:hover   { background: var(--accent-muted); color: var(--accent); }
+        .action-btn.delete:hover { background: var(--danger-muted); color: var(--danger); }
+
+        .action-btn.select:hover  { background: var(--accent-muted); color: var(--accent); }
+        .action-btn.select.active { background: var(--accent); color: #000; opacity: 1 !important; }
+        .action-btn.select.active:hover { background: #00b890; }
+
+        .asset-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), inset 0 0 0 9999px rgba(0,212,168,.06);
+        }
+        .asset-card.selected .card-actions { opacity: 1; }
+
+        /* ── BULK ACTION BAR ── */
+        .bulk-bar {
+            position: fixed;
+            bottom: -76px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--accent-muted);
+            border-radius: 14px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+            box-shadow: 0 8px 40px rgba(0,0,0,.5);
+            transition: bottom .28s cubic-bezier(.34,1.56,.64,1);
+            white-space: nowrap;
+        }
+        .bulk-bar.visible { bottom: 28px; }
+
+        .bulk-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            padding-right: 6px;
+            border-right: 1px solid var(--border);
+            margin-right: 2px;
+        }
+        .btn-deselect {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 7px;
+            transition: background .15s, color .15s;
+        }
+        .btn-deselect:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+        .btn-bulk {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 13px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .btn-bulk:hover { background: var(--bg-card); border-color: var(--text-muted); }
+        .btn-bulk.danger { border-color: var(--danger-muted); color: var(--danger); }
+        .btn-bulk.danger:hover { background: var(--danger-muted); border-color: var(--danger); }
+        .btn-bulk svg { flex-shrink: 0; }
+
+        /* ── BULK TAG OVERLAY ── */
+        .bulk-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.72);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s;
+        }
+        .bulk-overlay.open { opacity: 1; pointer-events: auto; }
+        .bulk-modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-modal);
+            padding: 28px 28px 24px;
+            width: 440px;
+            max-width: calc(100vw - 40px);
+            box-shadow: var(--shadow-modal);
+        }
+
+        .card-body {
+            padding: 14px 16px 16px;
+        }
+
+        .card-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .card-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 11px;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .tag-chip {
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 8px;
+            background: var(--tag-bg);
+            color: var(--tag-text);
+            border-radius: 5px;
+            letter-spacing: 0.1px;
+        }
+
+        /* ── EMPTY / NO RESULTS ── */
+        .state-box {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 90px 40px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .state-box .icon-wrap {
+            width: 72px;
+            height: 72px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .state-box .icon-wrap svg {
+            width: 32px;
+            height: 32px;
+            color: var(--text-muted);
+        }
+
+        .state-box h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .state-box p {
+            font-size: 14px;
+            line-height: 1.6;
+            max-width: 340px;
+        }
+
+        /* ── LOADING ── */
+        .spinner-wrap {
+            grid-column: 1/-1;
+            display: flex;
+            justify-content: center;
+            padding: 80px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .spinner {
+            width: 34px;
+            height: 34px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .75s linear infinite;
+        }
+
+        /* ── MODAL ── */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.72);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s;
+            padding: 20px;
+        }
+
+        .overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: 22px;
+            padding: 30px;
+            width: 100%;
+            max-width: 540px;
+            box-shadow: var(--shadow-modal);
+            transform: scale(.96) translateY(12px);
+            transition: transform .25s;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .overlay.open .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 26px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s;
+        }
+
+        .close-btn:hover { background: var(--border); }
+
+        /* ── DROP ZONE ── */
+        .drop-zone {
+            border: 2px dashed var(--border-light);
+            border-radius: 14px;
+            padding: 38px 20px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            transition: border-color .2s, background .2s;
+            margin-bottom: 22px;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .drop-zone input[type=file] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .dz-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--accent-muted);
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            margin: 0 auto 14px;
+        }
+
+        .drop-zone p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .drop-zone p strong { color: var(--accent); }
+
+        .drop-zone small {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .dz-folder-link {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .dz-folder-link:hover { opacity: 0.8; }
+
+        /* ── FILE SELECTED BANNER ── */
+        .file-banner {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: var(--accent-muted);
+            border: 1px solid rgba(0,212,168,.3);
+            border-radius: 11px;
+            padding: 13px 15px;
+            margin-bottom: 22px;
+        }
+
+        .file-banner svg { color: var(--accent); flex-shrink: 0; }
+
+        .fb-name {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .fb-size {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .fb-clear {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            transition: color .15s;
+        }
+
+        .fb-clear:hover { color: var(--danger); }
+
+        /* ── FORM ── */
+        .form-group { margin-bottom: 18px; }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 7px;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 42px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            padding: 0 14px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-muted);
+        }
+
+        .form-input::placeholder { color: var(--text-muted); }
+
+        /* ── TAG INPUT ── */
+        .tag-wrap {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            padding: 8px 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 44px;
+            cursor: text;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .tag-wrap:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-muted);
+        }
+
+        .ti-chip {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--tag-bg);
+            color: var(--tag-text);
+            border-radius: 5px;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .ti-chip button {
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: .6;
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .ti-chip button:hover { opacity: 1; }
+
+        .tag-field {
+            flex: 1;
+            min-width: 100px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            padding: 3px 4px;
+        }
+
+        .tag-field::placeholder { color: var(--text-muted); }
+
+        .tag-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* ── AI TAG SUGGESTIONS ── */
+        .suggest-section { margin-top: 10px; display: none; }
+        .suggest-section.visible { display: block; }
+        .suggest-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .suggest-label .suggest-loading { color: var(--accent); font-style: italic; }
+        .suggest-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .suggest-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+            border-radius: 5px; padding: 4px 8px; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: border-color .15s, color .15s; line-height: 1;
+        }
+        .suggest-chip::before { content: '+'; font-size: 11px; opacity: 0.6; }
+        .suggest-chip:hover { border-color: var(--accent); color: var(--accent); }
+        .suggest-add-all {
+            height: 26px; padding: 0 10px; background: var(--accent-muted);
+            border: 1px solid rgba(0,212,168,.3); border-radius: 5px;
+            color: var(--accent); font-size: 11px; font-weight: 600;
+            cursor: pointer; transition: background .15s; white-space: nowrap;
+        }
+        .suggest-add-all:hover { background: rgba(0,212,168,.2); }
+
+        /* ── MULTI-FILE LIST ── */
+        .file-list { display: none; margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--radius-input); overflow: hidden; }
+        .file-list.visible { display: block; }
+        .file-list-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 12px; background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            font-size: 12px; color: var(--text-muted);
+        }
+        .file-list-clear { background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer; padding: 0; text-decoration: underline; }
+        .file-list-clear:hover { color: var(--text-primary); }
+        .file-list-items { max-height: 140px; overflow-y: auto; }
+        .file-list-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 12px; font-size: 12px; color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .file-list-item:last-child { border-bottom: none; }
+        .file-list-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-list-item-size { color: var(--text-muted); white-space: nowrap; }
+
+        /* ── MODAL FOOTER ── */
+        .modal-foot {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 26px;
+        }
+
+        .btn-cancel {
+            height: 40px;
+            padding: 0 18px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+
+        .btn-cancel:hover { background: var(--border); color: var(--text-primary); }
+
+        .btn-save {
+            height: 40px;
+            padding: 0 22px;
+            background: var(--accent);
+            color: #081210;
+            border: none;
+            border-radius: var(--radius-input);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background .2s, box-shadow .2s;
+        }
+
+        .btn-save:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 16px rgba(0,212,168,.3);
+        }
+
+        .btn-save:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 13px 18px;
+            font-size: 14px;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-card);
+            z-index: 400;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(14px);
+            transition: opacity .3s, transform .3s;
+            pointer-events: none;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { border-color: var(--accent); }
+        .toast.error   { border-color: var(--danger); }
+
+        .toast-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .toast.success .toast-dot { background: var(--accent); }
+        .toast.error   .toast-dot { background: var(--danger); }
+
+        /* ── ASSET PREVIEW (edit modal) ── */
+        .modal.has-preview { max-width: 700px; }
+
+        .asset-preview {
+            border-radius: 13px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            margin-bottom: 22px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            max-height: 360px;
+            position: relative;
+        }
+
+        .asset-preview img {
+            max-width: 100%;
+            max-height: 360px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .asset-preview video {
+            width: 100%;
+            max-height: 360px;
+            display: block;
+        }
+
+        .asset-preview audio {
+            width: 100%;
+            padding: 20px 16px;
+            display: block;
+        }
+
+        .preview-img-scroll {
+            width: 100%;
+            max-height: 360px;
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-img-scroll img {
+            max-width: 100%;
+            max-height: 360px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .preview-zoom-bar {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            border-radius: 8px;
+            padding: 3px 4px;
+            z-index: 5;
+        }
+
+        .preview-zoom-btn {
+            width: 26px;
+            height: 26px;
+            border: none;
+            background: transparent;
+            color: #fff;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.1s;
+            padding: 0;
+        }
+
+        .preview-zoom-btn:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+        .preview-zoom-btn:disabled { opacity: 0.3; cursor: default; }
+
+        .preview-zoom-label {
+            color: rgba(255,255,255,0.75);
+            font-size: 11px;
+            font-weight: 600;
+            min-width: 36px;
+            text-align: center;
+            padding: 0 2px;
+        }
+
+        .preview-no-support {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 32px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .preview-no-support svg { width: 36px; height: 36px; }
+
+        /* ── GIF BADGE on cards ── */
+        .gif-badge {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0,0,0,.65);
+            backdrop-filter: blur(4px);
+            color: var(--accent);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<!-- ── TOP BAR ──────────────────────────────────────────────────────────── -->
+<header class="topbar">
+    <div class="logo">
+        <div class="logo-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+        </div>
+        <span class="logo-text">Digital<em>DAM</em></span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="searchInput" type="text" placeholder="Search by name or tag…" autocomplete="off">
+        <button class="search-clear" id="btnClearSearch" title="Clear search">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="topbar-right">
+        <span class="asset-count" id="assetCount">0 assets</span>
+        <button class="btn-add" id="btnOpenAdd">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Asset
+        </button>
+        <button class="btn-settings" id="btnOpenSettings" title="Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+        </button>
+    </div>
+</header>
+
+<!-- ── MAIN ─────────────────────────────────────────────────────────────── -->
+<main class="main">
+    <div class="section-header">
+        <div>
+            <div class="section-title">All Assets</div>
+            <div class="section-sub" id="sectionSub">Your complete asset library</div>
+        </div>
+        <button class="btn-sort" id="btnSort" title="Toggle sort order">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+            </svg>
+            <span>Name A–Z</span>
+        </button>
+    </div>
+    <div class="asset-grid" id="assetGrid">
+        <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+</main>
+
+<!-- ── ADD / EDIT MODAL ──────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay">
+    <div class="modal">
+        <div class="modal-head">
+            <span class="modal-title" id="modalTitle">Add New Asset</span>
+            <button class="close-btn" id="btnCloseModal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Asset preview (edit mode) -->
+        <div class="asset-preview" id="assetPreview"></div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" multiple>
+            <input type="file" id="folderInput" webkitdirectory multiple style="display:none">
+            <div class="dz-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                </svg>
+            </div>
+            <p>Drop files or folders here or <strong>click to browse</strong></p>
+            <small>All file types accepted · <span class="dz-folder-link" id="dzFolderLink">select a folder</span></small>
+        </div>
+
+        <!-- File selected banner (single file) -->
+        <div class="file-banner" id="fileBanner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <span class="fb-name" id="fbName"></span>
+            <span class="fb-size" id="fbSize"></span>
+            <button class="fb-clear" id="btnClearFile" title="Remove file">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Multi-file list -->
+        <div class="file-list" id="fileList"></div>
+
+        <div class="form-group" id="nameGroup">
+            <label class="form-label" for="assetName">Asset Name</label>
+            <input class="form-input" type="text" id="assetName" placeholder="e.g. UI Button Gray">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Tags</label>
+            <div class="tag-wrap" id="tagWrap">
+                <input class="tag-field" id="tagField" type="text" placeholder="Type a tag and press Enter or comma…">
+            </div>
+            <div class="tag-hint">Press <strong>Enter</strong> or <strong>,</strong> to add · <strong>Backspace</strong> to remove last</div>
+        </div>
+
+        <!-- AI tag suggestions (new assets only) -->
+        <div class="suggest-section" id="suggestSection">
+            <div class="suggest-label">
+                <span id="suggestLabelText">AI suggestions</span>
+            </div>
+            <div class="suggest-chips" id="suggestChips"></div>
+        </div>
+
+        <div class="modal-foot">
+            <button class="btn-cancel" id="btnCancel">Cancel</button>
+            <button class="btn-cancel" id="btnModalDownload" style="display:none;align-items:center;gap:6px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download
+            </button>
+            <button class="btn-save" id="btnSave">Save Asset</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── BULK ACTION BAR ────────────────────────────────────────────────────── -->
+<div class="bulk-bar" id="bulkBar">
+    <span class="bulk-count" id="bulkCount">0 selected</span>
+    <button class="btn-deselect" id="btnDeselectAll">Deselect all</button>
+    <button class="btn-bulk" id="btnBulkTag">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        Add Tags
+    </button>
+    <button class="btn-bulk" id="btnBulkDownload">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download
+    </button>
+    <button class="btn-bulk" id="btnBulkCopy">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        Copy
+    </button>
+    <button class="btn-bulk danger" id="btnBulkDelete">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/>
+        </svg>
+        Delete
+    </button>
+</div>
+
+<!-- ── BULK TAG MODAL ─────────────────────────────────────────────────────── -->
+<div class="bulk-overlay" id="bulkOverlay">
+    <div class="bulk-modal">
+        <div class="modal-head">
+            <span class="modal-title" id="bulkModalTitle">Add Tags</span>
+            <button class="close-btn" id="btnCloseBulkModal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="form-group" style="margin-top:20px">
+            <label class="form-label">Tags to add to selected assets</label>
+            <div class="tag-wrap" id="bulkTagWrap">
+                <input class="tag-field" id="bulkTagField" type="text" placeholder="Type a tag and press Enter or comma…">
+            </div>
+            <div class="tag-hint">Press <strong>Enter</strong> or <strong>,</strong> to add · <strong>Backspace</strong> to remove last</div>
+        </div>
+        <div class="modal-foot" style="margin-top:24px">
+            <button class="btn-cancel" id="btnBulkCancel">Cancel</button>
+            <button class="btn-save" id="btnBulkSave">Apply Tags</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── SETTINGS MODAL ────────────────────────────────────────────────────── -->
+<div class="overlay" id="settingsOverlay">
+    <div class="modal" style="max-width:460px">
+        <div class="modal-head">
+            <span class="modal-title">Settings</span>
+            <button class="close-btn" id="btnCloseSettings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="settings-section-label">General</div>
+
+        <div class="settings-row">
+            <div class="settings-row-info">
+                <span class="settings-row-title">Default sort order</span>
+                <span class="settings-row-desc">How assets are ordered when the library loads</span>
+            </div>
+            <span class="settings-placeholder">Coming soon</span>
+        </div>
+
+        <div class="settings-row">
+            <div class="settings-row-info">
+                <span class="settings-row-title">Assets per page</span>
+                <span class="settings-row-desc">Limit the number of visible assets at once</span>
+            </div>
+            <span class="settings-placeholder">Coming soon</span>
+        </div>
+
+        <div class="settings-section-label">Storage</div>
+
+        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:12px;">
+            <div class="settings-row-info">
+                <span class="settings-row-title">Storage Mode</span>
+                <span class="settings-row-desc">Cloud uses Supabase &amp; Vercel Blob. Local stores everything on your computer. Switching modes does not migrate assets.</span>
+            </div>
+            <div class="storage-toggle-group" id="storageModeToggle">
+                <button class="storage-mode-btn" id="btnModeCloud" onclick="setStorageMode('cloud')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+                    Cloud
+                </button>
+                <button class="storage-mode-btn" id="btnModeLocal" onclick="setStorageMode('local')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                    Local
+                </button>
+            </div>
+        </div>
+
+        <div class="settings-row" id="localFolderRow" style="display:none;">
+            <div class="settings-row-info">
+                <span class="settings-row-title">Local Folder</span>
+                <span id="localFolderName" class="settings-row-desc">No folder selected</span>
+            </div>
+            <button class="btn-cancel" id="btnChooseFolder" style="font-size:12px;padding:6px 14px;flex-shrink:0;" onclick="chooseLocalFolder()">
+                Choose Folder
+            </button>
+        </div>
+
+        <div class="settings-section-label">Display</div>
+
+        <div class="settings-row">
+            <div class="settings-row-info">
+                <span class="settings-row-title">Card size</span>
+                <span class="settings-row-desc">Default thumbnail size in the asset grid</span>
+            </div>
+            <span class="settings-placeholder">Coming soon</span>
+        </div>
+
+        <div class="settings-row">
+            <div class="settings-row-info">
+                <span class="settings-row-title">Show file size on cards</span>
+                <span class="settings-row-desc">Display file size badge on each asset card</span>
+            </div>
+            <span class="settings-placeholder">Coming soon</span>
+        </div>
+
+        <div class="modal-foot" style="margin-top:28px">
+            <button class="btn-cancel" id="btnSettingsClose">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── TOAST ─────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+    <div class="toast-dot"></div>
+    <span id="toastMsg"></span>
+</div>
+
+<script>
+/* ─── API ────────────────────────────────────────────────────────────────── */
+async function apiGetAll() {
+    const res = await fetch('/api/assets');
+    if (!res.ok) throw new Error('Failed to load assets');
+    return res.json();
+}
+
+async function apiCreate(asset) {
+    const res = await fetch('/api/assets', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(asset),
+    });
+    if (!res.ok) throw new Error('Failed to save asset');
+    return res.json();
+}
+
+async function apiUpdate(id, patch) {
+    const res = await fetch(`/api/asset/${id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error('Failed to update asset');
+    return res.json();
+}
+
+async function apiDelete(id) {
+    const res = await fetch(`/api/asset/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete asset');
+}
+
+async function apiUploadFile(file, id) {
+    const res = await fetch('/api/upload', {
+        method:  'POST',
+        headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-asset-id':   id,
+            'x-filename':   file.name,
+        },
+        body: file,
+    });
+    if (!res.ok) throw new Error('Failed to upload file');
+    const { url } = await res.json();
+    return url;
+}
+
+async function apiSuggestTags(thumbnail, filename, fileType) {
+    const res = await fetch('/api/suggest-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thumbnail, filename, fileType }),
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('[suggest-tags] API error', res.status, text);
+        return [];
+    }
+    const data = await res.json();
+    console.log('[suggest-tags] response:', data);
+    return Array.isArray(data.suggestions) ? data.suggestions : [];
+}
+
+/* ─── Local Storage — IndexedDB for FileSystemDirectoryHandle ────────────── */
+const localDB = (() => {
+    const DB_NAME    = 'DigitalDAM';
+    const DB_VERSION = 1;
+    const STORE      = 'handles';
+    const KEY        = 'localDirHandle';
+
+    function open() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
+            req.onsuccess       = e => resolve(e.target.result);
+            req.onerror         = e => reject(e.target.error);
+        });
+    }
+
+    async function getHandle() {
+        const db = await open();
+        return new Promise((resolve, reject) => {
+            const tx  = db.transaction(STORE, 'readonly');
+            const req = tx.objectStore(STORE).get(KEY);
+            req.onsuccess = e => resolve(e.target.result ?? null);
+            req.onerror   = e => reject(e.target.error);
+        });
+    }
+
+    async function setHandle(handle) {
+        const db = await open();
+        return new Promise((resolve, reject) => {
+            const tx  = db.transaction(STORE, 'readwrite');
+            const req = handle
+                ? tx.objectStore(STORE).put(handle, KEY)
+                : tx.objectStore(STORE).delete(KEY);
+            req.onsuccess = () => resolve();
+            req.onerror   = e  => reject(e.target.error);
+        });
+    }
+
+    return { getHandle, setHandle };
+})();
+
+/* ─── Local Storage API ──────────────────────────────────────────────────── */
+async function localReadManifest() {
+    try {
+        const fh   = await localDirHandle.getFileHandle('dam_data.json');
+        const file = await fh.getFile();
+        const text = await file.text();
+        return JSON.parse(text);
+    } catch {
+        return { assets: [] };
+    }
+}
+
+async function localWriteManifest(data) {
+    const fh       = await localDirHandle.getFileHandle('dam_data.json', { create: true });
+    const writable = await fh.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+}
+
+async function localGetAll() {
+    const { assets } = await localReadManifest();
+    return assets;
+}
+
+async function localCopyFile(file, filename) {
+    const fh       = await localDirHandle.getFileHandle(filename, { create: true });
+    const writable = await fh.createWritable();
+    await writable.write(file);
+    await writable.close();
+}
+
+async function localCreate(asset) {
+    const manifest = await localReadManifest();
+    manifest.assets.push(asset);
+    await localWriteManifest(manifest);
+}
+
+async function localUpdate(id, patch) {
+    const manifest = await localReadManifest();
+    const idx      = manifest.assets.findIndex(a => a.id === id);
+    if (idx === -1) throw new Error('Asset not found');
+    manifest.assets[idx] = { ...manifest.assets[idx], ...patch };
+    await localWriteManifest(manifest);
+    return manifest.assets[idx];
+}
+
+async function localDelete(id) {
+    const manifest = await localReadManifest();
+    const asset    = manifest.assets.find(a => a.id === id);
+    if (asset?.blobUrl) {
+        try { await localDirHandle.removeEntry(asset.blobUrl); } catch (e) {
+            console.warn('[local] Could not remove file:', asset.blobUrl, e);
+        }
+    }
+    manifest.assets = manifest.assets.filter(a => a.id !== id);
+    await localWriteManifest(manifest);
+}
+
+async function localResolveObjectURLs(assets) {
+    const resolved = [];
+    for (const a of assets) {
+        try {
+            const fh   = await localDirHandle.getFileHandle(a.blobUrl);
+            const file = await fh.getFile();
+            const url  = URL.createObjectURL(file);
+            resolved.push({ ...a, blobUrl: url, _localFilename: a.blobUrl });
+        } catch {
+            resolved.push({ ...a });
+        }
+    }
+    return resolved;
+}
+
+async function verifyDirPermission(handle) {
+    let perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') return true;
+    if (perm === 'prompt') {
+        perm = await handle.requestPermission({ mode: 'readwrite' });
+        return perm === 'granted';
+    }
+    return false;
+}
+
+async function switchToCloud() {
+    storageMode    = 'cloud';
+    localDirHandle = null;
+    localStorage.setItem('storageMode', 'cloud');
+    try { await localDB.setHandle(null); } catch {}
+    allAssets    = [];
+    displayAssets = [];
+    try { allAssets = await apiGetAll(); } catch {}
+    renderGrid(allAssets);
+    syncSettingsUI();
+}
+
+/* ─── API Dispatchers ────────────────────────────────────────────────────── */
+async function dispatchGetAll() {
+    if (storageMode === 'local') return localGetAll();
+    return apiGetAll();
+}
+
+async function dispatchUploadFile(file, id, ext) {
+    if (storageMode === 'local') {
+        const filename = `${id}.${ext}`;
+        await localCopyFile(file, filename);
+        return filename;
+    }
+    return apiUploadFile(file, id);
+}
+
+async function dispatchCreate(asset) {
+    if (storageMode === 'local') return localCreate(asset);
+    return apiCreate(asset);
+}
+
+async function dispatchUpdate(id, patch) {
+    if (storageMode === 'local') return localUpdate(id, patch);
+    return apiUpdate(id, patch);
+}
+
+async function dispatchDelete(id) {
+    if (storageMode === 'local') return localDelete(id);
+    return apiDelete(id);
+}
+
+/* ─── State ──────────────────────────────────────────────────────────────── */
+let allAssets    = [];
+let currentTags  = [];
+let selectedFiles = [];
+let editingId    = null;
+let sortAsc      = true;
+let currentSuggestions  = [];   // AI-suggested tags not yet added
+let suggestAbortCtrl    = null; // cancel in-flight suggest request on file clear
+let suggestionsFetched  = false; // prevent re-fetching within the same modal session
+
+// Multi-selection state
+let selectedAssetIds = new Set();
+let lastSelectedId   = null;
+let bulkTags         = [];
+
+// Storage mode state
+let storageMode    = localStorage.getItem('storageMode') || 'cloud';
+let localDirHandle = null;
+let displayAssets  = []; // allAssets with object URLs swapped in for local mode
+
+/* ─── DOM ────────────────────────────────────────────────────────────────── */
+const $  = id => document.getElementById(id);
+const assetGrid   = $('assetGrid');
+const assetCount  = $('assetCount');
+const sectionSub  = $('sectionSub');
+const searchInput = $('searchInput');
+const overlay     = $('overlay');
+const modalTitle  = $('modalTitle');
+const dropZone    = $('dropZone');
+const fileInput   = $('fileInput');
+const folderInput = $('folderInput');
+const fileBanner  = $('fileBanner');
+const fbName      = $('fbName');
+const fbSize      = $('fbSize');
+const assetName   = $('assetName');
+const tagWrap     = $('tagWrap');
+const btnSave     = $('btnSave');
+
+/* ─── Boot ───────────────────────────────────────────────────────────────── */
+(async () => {
+    if (storageMode === 'local') {
+        try { localDirHandle = await localDB.getHandle(); } catch (e) {
+            console.warn('[boot] IndexedDB read failed:', e);
+            localDirHandle = null;
+        }
+
+        if (localDirHandle) {
+            const ok = await verifyDirPermission(localDirHandle);
+            if (!ok) {
+                showToast('Folder access was lost. Switched to Cloud mode.', 'error');
+                await switchToCloud();
+                return;
+            }
+        } else {
+            renderGrid([]);
+            showToast('Choose a local folder in Settings to get started.', 'error');
+            return;
+        }
+    }
+
+    try {
+        allAssets = await dispatchGetAll();
+    } catch {
+        allAssets = [];
+    }
+
+    if (storageMode === 'local') {
+        displayAssets = await localResolveObjectURLs(allAssets);
+        renderGrid(displayAssets);
+    } else {
+        renderGrid(allAssets);
+    }
+})();
+
+/* ─── Search ─────────────────────────────────────────────────────────────── */
+searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    $('btnClearSearch').classList.toggle('visible', q.length > 0);
+    const source = storageMode === 'local' ? displayAssets : allAssets;
+    if (!q) { renderGrid(source); return; }
+    const filtered = source.filter(a =>
+        a.name.toLowerCase().includes(q) ||
+        a.tags.some(t => t.includes(q))
+    );
+    renderGrid(filtered, q);
+});
+
+$('btnClearSearch').addEventListener('click', () => {
+    searchInput.value = '';
+    $('btnClearSearch').classList.remove('visible');
+    const source = storageMode === 'local' ? displayAssets : allAssets;
+    renderGrid(source);
+    searchInput.focus();
+});
+
+/* ─── Sort ───────────────────────────────────────────────────────────────── */
+$('btnSort').addEventListener('click', () => {
+    sortAsc = !sortAsc;
+    const btn = $('btnSort');
+    btn.classList.toggle('desc', !sortAsc);
+    btn.querySelector('span').textContent = sortAsc ? 'Name A–Z' : 'Name Z–A';
+    searchInput.dispatchEvent(new Event('input'));
+});
+
+/* ─── Render ─────────────────────────────────────────────────────────────── */
+function sortedAssets(assets) {
+    return [...assets].sort((a, b) => {
+        const cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        return sortAsc ? cmp : -cmp;
+    });
+}
+
+function renderGrid(assets, query = '') {
+    const total = allAssets.length;
+    assetCount.textContent = `${total} asset${total !== 1 ? 's' : ''}`;
+
+    if (total === 0) {
+        assetGrid.innerHTML = `
+        <div class="state-box">
+            <div class="icon-wrap">${svgGrid()}</div>
+            <h3>No assets yet</h3>
+            <p>Click <strong style="color:var(--accent)">Add Asset</strong> to upload your first file and tag it for quick searching.</p>
+        </div>`;
+        sectionSub.textContent = 'Your complete asset library';
+        return;
+    }
+
+    if (query && assets.length === 0) {
+        assetGrid.innerHTML = `
+        <div class="state-box">
+            <div class="icon-wrap">${svgSearch()}</div>
+            <h3>No results found</h3>
+            <p>No assets match <strong>"${escHtml(query)}"</strong>. Try a different name or tag.</p>
+        </div>`;
+        sectionSub.textContent = `No results for "${escHtml(query)}"`;
+        return;
+    }
+
+    sectionSub.textContent = query
+        ? `${assets.length} result${assets.length !== 1 ? 's' : ''} for "${escHtml(query)}"`
+        : `${total} asset${total !== 1 ? 's' : ''} in your library`;
+
+    assetGrid.innerHTML = sortedAssets(assets).map(cardHTML).join('');
+    initGifObserver();
+    updateSelectionUI();
+}
+
+function cardHTML(a) {
+    const ext    = (a.ext || 'file').toLowerCase();
+    const isGif  = ext === 'gif';
+    const date   = new Date(a.dateAdded).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    const tags   = a.tags.map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
+
+    let thumb;
+    if (isGif && a.blobUrl) {
+        // Show static first-frame thumbnail initially; IntersectionObserver swaps in the live GIF
+        const staticSrc = a.thumbnail || '';
+        thumb = `<img src="${staticSrc}" data-gif="${a.blobUrl}" data-static="${staticSrc}" alt="${escHtml(a.name)}">
+                 <span class="gif-badge">GIF</span>`;
+    } else if (a.thumbnail) {
+        thumb = `<img src="${a.thumbnail}" alt="${escHtml(a.name)}" loading="lazy">`;
+    } else {
+        thumb = `<div class="file-icon-wrap">${svgFile()}<span class="file-ext-badge ext-${ext}">${escHtml(ext)}</span></div>`;
+    }
+
+    const isSel = selectedAssetIds.has(a.id);
+    return `
+    <div class="asset-card${isSel ? ' selected' : ''}" data-id="${a.id}" onclick="handleCardClick('${a.id}', event)">
+        <div class="card-thumb">
+            ${thumb}
+            <div class="card-actions">
+                <button class="action-btn select${isSel ? ' active' : ''}" onclick="event.stopPropagation(); toggleSelect('${a.id}')" title="Select">${svgCheck()}</button>
+                <button class="action-btn delete" onclick="event.stopPropagation(); deleteAsset('${a.id}')" title="Delete">${svgTrash()}</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="card-name" title="${escHtml(a.name)}">${escHtml(a.name)}</div>
+            <div class="card-meta">${date} · ${fmtBytes(a.fileSize || 0)}</div>
+            <div class="card-tags">${tags}</div>
+        </div>
+    </div>`;
+}
+
+/* ─── GIF IntersectionObserver ───────────────────────────────────────────── */
+function initGifObserver() {
+    const gifImgs = assetGrid.querySelectorAll('img[data-gif]');
+    if (!gifImgs.length) return;
+
+    const io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            const img = e.target;
+            img.src = e.isIntersecting
+                ? img.dataset.gif
+                : (img.dataset.static || img.dataset.gif);
+        });
+    }, { threshold: 0.1 });
+
+    gifImgs.forEach(img => io.observe(img));
+}
+
+/* ─── Multi-selection ────────────────────────────────────────────────────── */
+window.handleCardClick = function(id, e) {
+    if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        toggleSelect(id);
+    } else if (e.shiftKey) {
+        e.preventDefault();
+        if (selectedAssetIds.size === 0) {
+            toggleSelect(id);
+        } else {
+            selectRange(id);
+        }
+    } else {
+        editAsset(id);
+    }
+};
+
+window.toggleSelect = function(id) {
+    if (selectedAssetIds.has(id)) {
+        selectedAssetIds.delete(id);
+    } else {
+        selectedAssetIds.add(id);
+        lastSelectedId = id;
+    }
+    updateSelectionUI();
+};
+
+function selectRange(toId) {
+    const cards = [...assetGrid.querySelectorAll('.asset-card')];
+    const ids   = cards.map(c => c.dataset.id);
+    const toIdx   = ids.indexOf(toId);
+    const fromIdx = ids.indexOf(lastSelectedId);
+    if (toIdx === -1) { toggleSelect(toId); return; }
+    if (fromIdx === -1) { toggleSelect(toId); return; }
+    const lo = Math.min(fromIdx, toIdx);
+    const hi = Math.max(fromIdx, toIdx);
+    for (let i = lo; i <= hi; i++) selectedAssetIds.add(ids[i]);
+    lastSelectedId = toId;
+    updateSelectionUI();
+}
+
+function clearSelection() {
+    selectedAssetIds.clear();
+    lastSelectedId = null;
+    updateSelectionUI();
+}
+
+function updateSelectionUI() {
+    const count = selectedAssetIds.size;
+
+    // Bulk bar visibility + count label
+    $('bulkBar').classList.toggle('visible', count > 0);
+    $('bulkCount').textContent = `${count} selected`;
+
+    // Sync card + select-button classes without full re-render
+    assetGrid.querySelectorAll('.asset-card').forEach(card => {
+        const sel = selectedAssetIds.has(card.dataset.id);
+        card.classList.toggle('selected', sel);
+        const btn = card.querySelector('.action-btn.select');
+        if (btn) btn.classList.toggle('active', sel);
+    });
+}
+
+/* ─── Bulk action handlers ───────────────────────────────────────────────── */
+$('btnDeselectAll').addEventListener('click', clearSelection);
+
+$('btnBulkDelete').addEventListener('click', async () => {
+    const ids = [...selectedAssetIds];
+    if (!confirm(`Delete ${ids.length} asset${ids.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    let failed = 0;
+    for (const id of ids) {
+        try {
+            await dispatchDelete(id);
+            allAssets = allAssets.filter(a => a.id !== id);
+            if (storageMode === 'local') {
+                const dAsset = displayAssets.find(a => a.id === id);
+                if (dAsset?.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(dAsset.blobUrl);
+                displayAssets = displayAssets.filter(a => a.id !== id);
+            }
+        } catch { failed++; }
+    }
+    selectedAssetIds.clear();
+    lastSelectedId = null;
+    const q = searchInput.value.trim().toLowerCase();
+    const renderSource = storageMode === 'local' ? displayAssets : allAssets;
+    renderGrid(q ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q))) : renderSource, q);
+    showToast(failed > 0
+        ? `Deleted ${ids.length - failed} assets. ${failed} failed.`
+        : `Deleted ${ids.length} asset${ids.length !== 1 ? 's' : ''}.`,
+        failed > 0 ? 'error' : 'success');
+});
+
+$('btnBulkDownload').addEventListener('click', async () => {
+    const assets = [...selectedAssetIds]
+        .map(id => allAssets.find(a => a.id === id))
+        .filter(a => a?.blobUrl);
+    if (!assets.length) return;
+
+    try {
+        if (assets.length === 1) {
+            await downloadSingleWithPicker(assets[0]);
+        } else {
+            await downloadMultipleToDir(assets);
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return; // user cancelled the dialog
+        console.error('Download error:', err);
+        showToast('Download failed.', 'error');
+    }
+});
+
+async function downloadSingleWithPicker(asset) {
+    if (!window.showSaveFilePicker) { fallbackDownload([asset]); return; }
+    const blob = await fetchBlob(asset.blobUrl);
+    let handle;
+    try {
+        handle = await window.showSaveFilePicker({
+            suggestedName: `${asset.name}.${asset.ext}`,
+            types: [{ description: 'File', accept: { [asset.fileType || 'application/octet-stream']: [`.${asset.ext}`] } }],
+        });
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        // types spec failed (unknown MIME) — retry without it
+        handle = await window.showSaveFilePicker({ suggestedName: `${asset.name}.${asset.ext}` });
+    }
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    showToast('File saved.', 'success');
+}
+
+async function downloadMultipleToDir(assets) {
+    if (!window.showDirectoryPicker) { fallbackDownload(assets); return; }
+    const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    let saved = 0, failed = 0;
+    for (const asset of assets) {
+        try {
+            const blob     = await fetchBlob(asset.blobUrl);
+            const filename = `${asset.name}.${asset.ext}`;
+            const fh       = await dir.getFileHandle(filename, { create: true });
+            const writable = await fh.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            saved++;
+        } catch {
+            failed++;
+        }
+    }
+    showToast(failed > 0
+        ? `Saved ${saved} files. ${failed} failed.`
+        : `Saved ${saved} file${saved !== 1 ? 's' : ''}.`,
+        failed > 0 ? 'error' : 'success');
+}
+
+async function fetchBlob(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+    return res.blob();
+}
+
+function fallbackDownload(assets) {
+    assets.forEach((asset, i) => {
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.href     = asset.blobUrl;
+            link.download = `${asset.name}.${asset.ext}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }, i * 200);
+    });
+    showToast(`Downloading ${assets.length} file${assets.length !== 1 ? 's' : ''}…`, 'success');
+}
+
+async function blobToPng(blob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(png => png ? resolve(png) : reject(new Error('toBlob failed')), 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+        img.src = url;
+    });
+}
+
+$('btnBulkCopy').addEventListener('click', async () => {
+    const assets = [...selectedAssetIds]
+        .map(id => allAssets.find(a => a.id === id))
+        .filter(Boolean);
+    if (!assets.length) return;
+
+    const isImage = a => a.fileType?.startsWith('image/') ||
+        ['jpg','jpeg','png','gif','webp','bmp','avif'].includes(a.ext?.toLowerCase());
+
+    // Single image: copy actual image data to clipboard
+    if (assets.length === 1 && isImage(assets[0]) && navigator.clipboard?.write) {
+        try {
+            const blob    = await fetchBlob(assets[0].blobUrl);
+            const pngBlob = await blobToPng(blob);
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+            showToast('Image copied to clipboard.', 'success');
+            return;
+        } catch (err) {
+            if (err.name !== 'NotAllowedError') console.error('Clipboard write failed:', err);
+            // fall through to URL copy
+        }
+    }
+
+    // Multiple assets or non-image: copy blob URLs as text
+    const text = assets.map(a => a.blobUrl).join('\n');
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast(assets.length === 1
+            ? 'URL copied to clipboard.'
+            : `${assets.length} URLs copied to clipboard.`, 'success');
+    } catch {
+        showToast('Copy failed — clipboard access denied.', 'error');
+    }
+});
+
+$('btnBulkTag').addEventListener('click', () => {
+    const count = selectedAssetIds.size;
+    $('bulkModalTitle').textContent = `Add Tags to ${count} Asset${count !== 1 ? 's' : ''}`;
+    bulkTags = [];
+    renderBulkTagChips();
+    $('bulkOverlay').classList.add('open');
+    setTimeout(() => $('bulkTagField')?.focus(), 50);
+});
+
+$('btnCloseBulkModal').addEventListener('click', () => $('bulkOverlay').classList.remove('open'));
+$('btnBulkCancel').addEventListener('click',     () => $('bulkOverlay').classList.remove('open'));
+$('bulkOverlay').addEventListener('click', e => { if (e.target === $('bulkOverlay')) $('bulkOverlay').classList.remove('open'); });
+
+$('btnBulkSave').addEventListener('click', async () => {
+    if (!bulkTags.length) { $('bulkOverlay').classList.remove('open'); return; }
+    const ids = [...selectedAssetIds];
+    let failed = 0;
+    for (const id of ids) {
+        const asset = allAssets.find(a => a.id === id);
+        if (!asset) continue;
+        const merged = [...new Set([...asset.tags, ...bulkTags])];
+        try {
+            await dispatchUpdate(id, { name: asset.name, tags: merged });
+            asset.tags = merged;
+            if (storageMode === 'local') {
+                const dAsset = displayAssets.find(a => a.id === id);
+                if (dAsset) dAsset.tags = merged;
+            }
+        } catch { failed++; }
+    }
+    $('bulkOverlay').classList.remove('open');
+    const q = searchInput.value.trim().toLowerCase();
+    const renderSource = storageMode === 'local' ? displayAssets : allAssets;
+    renderGrid(q ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q))) : renderSource, q);
+    showToast(failed > 0
+        ? `Tags added to ${ids.length - failed} assets. ${failed} failed.`
+        : `Tags added to ${ids.length} asset${ids.length !== 1 ? 's' : ''}.`,
+        failed > 0 ? 'error' : 'success');
+});
+
+/* ─── Bulk tag input ─────────────────────────────────────────────────────── */
+function renderBulkTagChips() {
+    const wrap  = $('bulkTagWrap');
+    const chips = bulkTags.map((t, i) =>
+        `<span class="tag-chip-edit">${escHtml(t)}<button type="button" onclick="removeBulkTag(${i})">×</button></span>`
+    ).join('');
+    wrap.innerHTML = chips + `<input class="tag-field" id="bulkTagField" type="text" placeholder="${bulkTags.length ? 'Add more…' : 'Type a tag and press Enter or comma…'}">`;
+    const field = $('bulkTagField');
+    field.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addBulkTag(field.value);
+        } else if (e.key === 'Backspace' && !field.value && bulkTags.length) {
+            bulkTags.pop();
+            renderBulkTagChips();
+        }
+    });
+    field.focus();
+}
+
+function addBulkTag(raw) {
+    const tag = raw.trim().replace(/,/g, '').toLowerCase();
+    if (tag && !bulkTags.includes(tag)) bulkTags.push(tag);
+    renderBulkTagChips();
+}
+
+window.removeBulkTag = function(i) {
+    bulkTags.splice(i, 1);
+    renderBulkTagChips();
+};
+
+/* ─── Modal open / close ─────────────────────────────────────────────────── */
+$('btnOpenAdd').addEventListener('click', openAddModal);
+$('btnCloseModal').addEventListener('click', closeModal);
+$('btnCancel').addEventListener('click', closeModal);
+$('btnModalDownload').addEventListener('click', async () => {
+    if (storageMode === 'local') {
+        const canonAsset = allAssets.find(a => a.id === editingId);
+        if (!canonAsset?.blobUrl || !localDirHandle) return;
+        try {
+            const fh       = await localDirHandle.getFileHandle(canonAsset.blobUrl);
+            const file     = await fh.getFile();
+            const saveHandle = await window.showSaveFilePicker({ suggestedName: canonAsset.blobUrl });
+            const w        = await saveHandle.createWritable();
+            await w.write(file);
+            await w.close();
+            showToast('File saved.', 'success');
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            console.error('Local download error:', err);
+            showToast('Download failed.', 'error');
+        }
+        return;
+    }
+    const asset = allAssets.find(a => a.id === editingId);
+    if (!asset?.blobUrl) return;
+    try {
+        await downloadSingleWithPicker(asset);
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Download error:', err);
+        showToast('Download failed.', 'error');
+    }
+});
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+    if (e.key === 'Escape' && $('settingsOverlay').classList.contains('open')) closeSettingsModal();
+});
+
+$('btnOpenSettings').addEventListener('click', openSettingsModal);
+$('btnCloseSettings').addEventListener('click', closeSettingsModal);
+$('btnSettingsClose').addEventListener('click', closeSettingsModal);
+$('settingsOverlay').addEventListener('click', e => { if (e.target === $('settingsOverlay')) closeSettingsModal(); });
+
+function openSettingsModal() {
+    syncSettingsUI();
+    $('settingsOverlay').classList.add('open');
+}
+
+function closeSettingsModal() {
+    $('settingsOverlay').classList.remove('open');
+}
+
+function syncSettingsUI() {
+    $('btnModeCloud').classList.toggle('active', storageMode === 'cloud');
+    $('btnModeLocal').classList.toggle('active', storageMode === 'local');
+    $('localFolderRow').style.display = storageMode === 'local' ? '' : 'none';
+    if (storageMode === 'local' && localDirHandle) {
+        $('localFolderName').textContent = localDirHandle.name;
+    } else if (storageMode === 'local') {
+        $('localFolderName').textContent = 'No folder selected';
+    }
+    if (!window.showDirectoryPicker) {
+        $('btnModeLocal').disabled = true;
+        $('btnModeLocal').title    = 'Your browser does not support local folder access. Use Chrome or Edge.';
+    }
+}
+
+async function setStorageMode(mode) {
+    if (mode === storageMode) return;
+    const previous = storageMode;
+    storageMode = mode;
+    localStorage.setItem('storageMode', mode);
+    syncSettingsUI();
+
+    if (mode === 'local') {
+        const picked = await chooseLocalFolder();
+        if (!picked) {
+            storageMode = previous;
+            localStorage.setItem('storageMode', previous);
+            syncSettingsUI();
+            return;
+        }
+    }
+
+    await reloadAssetsForMode();
+}
+
+async function chooseLocalFolder() {
+    if (!window.showDirectoryPicker) {
+        showToast('Your browser does not support local folder access. Use Chrome or Edge.', 'error');
+        return false;
+    }
+    try {
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        localDirHandle = handle;
+        await localDB.setHandle(handle);
+        syncSettingsUI();
+        return true;
+    } catch (err) {
+        if (err.name === 'AbortError') return false;
+        console.error('[chooseLocalFolder]', err);
+        showToast('Could not access the selected folder.', 'error');
+        return false;
+    }
+}
+
+async function reloadAssetsForMode() {
+    if (storageMode === 'cloud') {
+        displayAssets.forEach(a => {
+            if (a.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(a.blobUrl);
+        });
+        displayAssets = [];
+    }
+
+    try {
+        allAssets = await dispatchGetAll();
+    } catch {
+        allAssets = [];
+        showToast('Failed to load assets.', 'error');
+    }
+
+    if (storageMode === 'local') {
+        displayAssets = await localResolveObjectURLs(allAssets);
+        renderGrid(displayAssets);
+    } else {
+        renderGrid(allAssets);
+    }
+}
+
+function openAddModal() {
+    editingId = null;
+    modalTitle.textContent = 'Add New Asset';
+    btnSave.textContent    = 'Save Asset';
+    clearForm();
+    overlay.classList.add('open');
+    setTimeout(() => assetName.focus(), 50);
+}
+
+function closeModal() {
+    overlay.classList.remove('open');
+    clearForm();
+}
+
+function clearSuggestions() {
+    currentSuggestions = [];
+    suggestionsFetched = false;
+    if (suggestAbortCtrl) { suggestAbortCtrl.abort(); suggestAbortCtrl = null; }
+    $('suggestSection').classList.remove('visible');
+    $('suggestChips').innerHTML = '';
+    $('suggestLabelText').textContent = 'AI suggestions';
+}
+
+function clearForm() {
+    selectedFiles   = [];
+    currentTags     = [];
+    assetName.value = '';
+    fileInput.value = '';
+    $('btnModalDownload').style.display = 'none';
+    dropZone.style.display   = '';
+    fileBanner.style.display = 'none';
+    $('fileList').classList.remove('visible');
+    $('nameGroup').style.display = '';
+    const prev = $('assetPreview');
+    prev.style.display = 'none';
+    prev.innerHTML = '';
+    overlay.querySelector('.modal').classList.remove('has-preview');
+    renderTagChips();
+    clearSuggestions();
+}
+
+/* ─── File picking ───────────────────────────────────────────────────────── */
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleFiles(fileInput.files);
+});
+
+folderInput.addEventListener('change', () => {
+    if (folderInput.files.length) handleFiles(folderInput.files);
+});
+
+$('dzFolderLink').addEventListener('click', e => {
+    e.stopPropagation();
+    folderInput.value = '';
+    folderInput.click();
+});
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const items = Array.from(e.dataTransfer.items || []);
+    if (!items.length) return;
+    const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (entries.length) {
+        collectFilesFromEntries(entries).then(files => { if (files.length) handleFiles(files); });
+    } else if (e.dataTransfer.files.length) {
+        handleFiles(e.dataTransfer.files);
+    }
+});
+
+async function collectFilesFromEntries(entries) {
+    const files = [];
+    async function traverse(entry) {
+        if (entry.isFile) {
+            files.push(await new Promise(resolve => entry.file(resolve)));
+        } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            let batch;
+            do {
+                batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+                for (const sub of batch) await traverse(sub);
+            } while (batch.length > 0);
+        }
+    }
+    for (const entry of entries) await traverse(entry);
+    return files;
+}
+
+function handleFiles(fileList) {
+    selectedFiles = Array.from(fileList);
+    clearSuggestions();
+    dropZone.style.display = 'none';
+
+    if (selectedFiles.length === 1) {
+        const file = selectedFiles[0];
+        if (!assetName.value) assetName.value = file.name.replace(/\.[^/.]+$/, '');
+        fbName.textContent = file.name;
+        fbSize.textContent = fmtBytes(file.size);
+        fileBanner.style.display = 'flex';
+        $('fileList').classList.remove('visible');
+        $('nameGroup').style.display = '';
+        fetchTagSuggestions(file);
+    } else {
+        fileBanner.style.display = 'none';
+        $('nameGroup').style.display = 'none';
+        btnSave.textContent = `Save ${selectedFiles.length} Assets`;
+        renderFileList();
+        const firstImage = selectedFiles.find(f => f.type.startsWith('image/')) || selectedFiles[0];
+        fetchTagSuggestions(firstImage);
+    }
+}
+
+function renderFileList() {
+    const list = $('fileList');
+    list.innerHTML =
+        `<div class="file-list-header">
+            <span>${selectedFiles.length} files selected</span>
+            <button type="button" class="file-list-clear" onclick="clearAllFiles()">Clear all</button>
+        </div>
+        <div class="file-list-items">` +
+        selectedFiles.map(f =>
+            `<div class="file-list-item">
+                <span class="file-list-item-name">${escHtml(f.name)}</span>
+                <span class="file-list-item-size">${fmtBytes(f.size)}</span>
+            </div>`
+        ).join('') +
+        `</div>`;
+    list.classList.add('visible');
+}
+
+window.clearAllFiles = function() {
+    selectedFiles = [];
+    fileInput.value = '';
+    $('fileList').classList.remove('visible');
+    $('nameGroup').style.display = '';
+    dropZone.style.display = '';
+    btnSave.textContent = 'Save Asset';
+    clearSuggestions();
+};
+
+async function fetchTagSuggestions(file) {
+    $('suggestSection').classList.add('visible');
+    $('suggestLabelText').innerHTML = '<span class="suggest-loading">Getting AI suggestions…</span>';
+    $('suggestChips').innerHTML = '';
+
+    let thumbnail = null;
+    try { thumbnail = await makeThumbnail(file); } catch { /* non-critical */ }
+
+    suggestAbortCtrl = new AbortController();
+    try {
+        const suggestions = await apiSuggestTags(thumbnail, file.name, file.type);
+        if (!selectedFiles.includes(file)) return;   // race condition guard: files changed mid-flight
+        currentSuggestions = suggestions;
+        $('suggestLabelText').textContent = 'AI suggestions';
+        if (suggestions.length === 0) {
+            console.warn('[suggest-tags] no suggestions returned');
+            $('suggestSection').classList.remove('visible');
+        } else {
+            renderSuggestions();
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('[suggest-tags] fetchTagSuggestions error:', err);
+        $('suggestSection').classList.remove('visible');
+    } finally {
+        suggestAbortCtrl = null;
+    }
+}
+
+async function fetchTagSuggestionsFromAsset(asset) {
+    if (suggestionsFetched) return;
+    suggestionsFetched = true;
+    $('suggestSection').classList.add('visible');
+    $('suggestLabelText').innerHTML = '<span class="suggest-loading">Getting AI suggestions…</span>';
+    $('suggestChips').innerHTML = '';
+    try {
+        const suggestions = await apiSuggestTags(asset.thumbnail, asset.name, asset.fileType);
+        currentSuggestions = suggestions;
+        $('suggestLabelText').textContent = 'AI suggestions';
+        if (suggestions.length === 0) {
+            $('suggestSection').classList.remove('visible');
+        } else {
+            renderSuggestions();
+        }
+    } catch (err) {
+        console.error('[suggest-tags] fetchTagSuggestionsFromAsset error:', err);
+        $('suggestSection').classList.remove('visible');
+    }
+}
+
+$('btnClearFile').addEventListener('click', () => {
+    selectedFiles = [];
+    fileInput.value = '';
+    dropZone.style.display   = '';
+    fileBanner.style.display = 'none';
+    $('nameGroup').style.display = '';
+    clearSuggestions();
+});
+
+/* ─── Tag input ──────────────────────────────────────────────────────────── */
+tagWrap.addEventListener('click', () => {
+    const f = tagWrap.querySelector('.tag-field');
+    if (f) f.focus();
+});
+
+function bindTagField(field) {
+    field.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(field.value);
+        } else if (e.key === 'Backspace' && field.value === '' && currentTags.length) {
+            currentTags.pop();
+            renderTagChips();
+        }
+    });
+    field.addEventListener('blur', () => {
+        if (field.value.trim()) addTag(field.value);
+    });
+    field.addEventListener('focus', () => {
+        if (editingId && !suggestionsFetched) {
+            const asset = allAssets.find(a => a.id === editingId);
+            if (asset) fetchTagSuggestionsFromAsset(asset);
+        }
+    });
+}
+
+function addTag(raw) {
+    const tag = raw.trim().replace(/,+$/, '').toLowerCase();
+    if (tag && !currentTags.includes(tag)) {
+        currentTags.push(tag);
+        renderTagChips();
+    }
+    const f = tagWrap.querySelector('.tag-field');
+    if (f) { f.value = ''; f.focus(); }
+}
+
+function removeTag(i) {
+    currentTags.splice(i, 1);
+    renderTagChips();
+}
+
+function renderTagChips() {
+    const chips = currentTags.map((t, i) =>
+        `<div class="ti-chip">${escHtml(t)}<button type="button" onclick="removeTag(${i})">×</button></div>`
+    ).join('');
+    const placeholder = currentTags.length ? '' : 'Type a tag and press Enter or comma…';
+    tagWrap.innerHTML = chips + `<input class="tag-field" id="tagField" type="text" placeholder="${placeholder}">`;
+    bindTagField(tagWrap.querySelector('.tag-field'));
+}
+
+function renderSuggestions() {
+    const section   = $('suggestSection');
+    const chips     = $('suggestChips');
+    const remaining = currentSuggestions.filter(t => !currentTags.includes(t));
+    if (remaining.length === 0) {
+        section.classList.remove('visible');
+        chips.innerHTML = '';
+        return;
+    }
+    section.classList.add('visible');
+    const addAllBtn = remaining.length > 1
+        ? `<button type="button" class="suggest-add-all" onclick="acceptAllSuggestions()">Add all</button>` : '';
+    chips.innerHTML = remaining.map(t =>
+        `<button type="button" class="suggest-chip" onclick="acceptSuggestion('${escHtml(t)}')">${escHtml(t)}</button>`
+    ).join('') + addAllBtn;
+}
+
+function acceptSuggestion(tag) {
+    addTag(tag);
+    renderSuggestions();
+}
+
+function acceptAllSuggestions() {
+    currentSuggestions.filter(t => !currentTags.includes(t)).forEach(t => {
+        if (t && !currentTags.includes(t)) currentTags.push(t);
+    });
+    renderTagChips();
+    currentSuggestions = [];
+    renderSuggestions();
+}
+
+window.acceptSuggestion     = acceptSuggestion;
+window.acceptAllSuggestions = acceptAllSuggestions;
+
+/* ─── Save ───────────────────────────────────────────────────────────────── */
+btnSave.addEventListener('click', async () => {
+    if (editingId) {
+        const name = assetName.value.trim();
+        if (!name) { showToast('Please enter an asset name.', 'error'); return; }
+        btnSave.disabled = true;
+        btnSave.textContent = 'Saving…';
+        try {
+            await dispatchUpdate(editingId, { name, tags: [...currentTags] });
+            const idx = allAssets.findIndex(a => a.id === editingId);
+            if (idx !== -1) { allAssets[idx].name = name; allAssets[idx].tags = [...currentTags]; }
+            if (storageMode === 'local') {
+                const dIdx = displayAssets.findIndex(a => a.id === editingId);
+                if (dIdx !== -1) { displayAssets[dIdx].name = name; displayAssets[dIdx].tags = [...currentTags]; }
+            }
+            closeModal();
+            const q = searchInput.value.trim().toLowerCase();
+            const renderSource = storageMode === 'local' ? displayAssets : allAssets;
+            renderGrid(q
+                ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q)))
+                : renderSource, q);
+            showToast('Asset updated!', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('Something went wrong. Please try again.', 'error');
+        }
+        btnSave.disabled = false;
+        btnSave.textContent = 'Save Changes';
+        return;
+    }
+
+    // Add mode
+    if (storageMode === 'local' && !localDirHandle) {
+        showToast('Please choose a local folder in Settings first.', 'error');
+        return;
+    }
+    if (selectedFiles.length === 0) { showToast('Please select a file.', 'error'); return; }
+    if (selectedFiles.length === 1 && !assetName.value.trim()) { showToast('Please enter an asset name.', 'error'); return; }
+
+    btnSave.disabled = true;
+    const total = selectedFiles.length;
+
+    try {
+        for (let i = 0; i < total; i++) {
+            const file = selectedFiles[i];
+            const name = total === 1
+                ? assetName.value.trim()
+                : file.name.replace(/\.[^/.]+$/, '');
+
+            btnSave.textContent = total > 1 ? `Uploading ${i + 1} of ${total}…` : 'Uploading file…';
+            const id        = crypto.randomUUID();
+            const ext       = file.name.split('.').pop().toLowerCase();
+            const thumbnail = await makeThumbnail(file);
+            const blobUrl   = await dispatchUploadFile(file, id, ext);
+
+            btnSave.textContent = total > 1 ? `Saving ${i + 1} of ${total}…` : 'Saving…';
+            const asset = {
+                id, name,
+                tags:      [...currentTags],
+                ext,
+                fileType:  file.type,
+                fileSize:  file.size,
+                thumbnail,
+                blobUrl,
+                dateAdded: Date.now(),
+            };
+            await dispatchCreate(asset);
+            allAssets.push(asset);
+        }
+
+        if (storageMode === 'local') {
+            displayAssets = await localResolveObjectURLs(allAssets);
+        }
+        closeModal();
+        const q = searchInput.value.trim().toLowerCase();
+        const renderSource = storageMode === 'local' ? displayAssets : allAssets;
+        renderGrid(q
+            ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q)))
+            : renderSource, q);
+        showToast(total > 1 ? `${total} assets added!` : 'Asset added!', 'success');
+    } catch (err) {
+        console.error(err);
+        showToast('Something went wrong. Please try again.', 'error');
+    }
+
+    btnSave.disabled    = false;
+    btnSave.textContent = 'Save Asset';
+});
+
+/* ─── Edit ───────────────────────────────────────────────────────────────── */
+window.editAsset = function(id) {
+    const source = storageMode === 'local' ? displayAssets : allAssets;
+    const a = source.find(x => x.id === id);
+    if (!a) return;
+
+    clearSuggestions();
+    editingId = id;
+    modalTitle.textContent = 'Edit Asset';
+    btnSave.textContent    = 'Save Changes';
+
+    assetName.value = a.name;
+    currentTags     = [...a.tags];
+    renderTagChips();
+
+    // Hide drop zone and plain banner — show rich preview instead
+    dropZone.style.display   = 'none';
+    fileBanner.style.display = 'none';
+    showEditPreview(a);
+
+    $('btnModalDownload').style.display = 'inline-flex';
+    overlay.classList.add('open');
+    setTimeout(() => assetName.focus(), 50);
+};
+
+function showEditPreview(a) {
+    const prev  = $('assetPreview');
+    const modal = overlay.querySelector('.modal');
+
+    if (!a.blobUrl) {
+        prev.style.display = 'none';
+        return;
+    }
+
+    const url  = a.blobUrl;
+    const ext  = (a.ext || '').toLowerCase();
+    const mime = a.fileType || '';
+
+    let html = '';
+    let isImage = false;
+    if (mime.startsWith('video/') || ['mp4','mov','avi','webm','mkv','m4v'].includes(ext)) {
+        html = `<video src="${url}" controls loop style="width:100%;max-height:360px;display:block;"></video>`;
+        modal.classList.add('has-preview');
+    } else if (mime.startsWith('audio/') || ['mp3','wav','ogg','m4a','aac','flac'].includes(ext)) {
+        html = `<audio src="${url}" controls style="width:100%;padding:20px 16px;display:block;"></audio>`;
+        modal.classList.add('has-preview');
+    } else if (mime.startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif','tiff'].includes(ext)) {
+        html = `<div class="preview-img-scroll" id="previewImgScroll">
+            <img id="previewImg" src="${url}" alt="${escHtml(a.name)}">
+        </div>
+        <div class="preview-zoom-bar">
+            <button class="preview-zoom-btn" id="btnZoomOut" title="Zoom out" disabled>−</button>
+            <span class="preview-zoom-label" id="zoomLabel">100%</span>
+            <button class="preview-zoom-btn" id="btnZoomIn" title="Zoom in">+</button>
+            <button class="preview-zoom-btn" id="btnZoomReset" title="Reset zoom">↺</button>
+        </div>`;
+        modal.classList.add('has-preview');
+        isImage = true;
+    } else {
+        // Unsupported preview — show compact file info
+        html = `<div class="preview-no-support">
+            ${svgFile()}
+            <span>${escHtml(a.name + (a.ext ? '.' + a.ext : ''))}</span>
+            <span style="font-size:12px;color:var(--text-muted)">${fmtBytes(a.fileSize || 0)} · No preview available</span>
+        </div>`;
+    }
+
+    prev.innerHTML     = html;
+    prev.style.display = 'flex';
+
+    if (isImage) {
+        const img = document.getElementById('previewImg');
+        if (img) {
+            const setup = () => initPreviewZoom(img);
+            img.complete && img.naturalWidth ? setup() : img.addEventListener('load', setup, { once: true });
+        }
+    }
+}
+
+function initPreviewZoom(img) {
+    const STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8];
+    let zoomIdx = STEPS.indexOf(1);
+
+    const label    = document.getElementById('zoomLabel');
+    const btnIn    = document.getElementById('btnZoomIn');
+    const btnOut   = document.getElementById('btnZoomOut');
+    const btnReset = document.getElementById('btnZoomReset');
+    if (!label || !btnIn || !btnOut || !btnReset) return;
+
+    function applyZoom() {
+        const zoom = STEPS[zoomIdx];
+        label.textContent  = Math.round(zoom * 100) + '%';
+        btnOut.disabled    = zoomIdx <= 0;
+        btnIn.disabled     = zoomIdx >= STEPS.length - 1;
+
+        if (zoom === 1) {
+            img.style.width          = '';
+            img.style.height         = '';
+            img.style.maxWidth       = '';
+            img.style.maxHeight      = '';
+            img.style.objectFit      = '';
+            img.style.imageRendering = '';
+        } else {
+            img.style.width          = (img.naturalWidth  * zoom) + 'px';
+            img.style.height         = (img.naturalHeight * zoom) + 'px';
+            img.style.maxWidth       = 'none';
+            img.style.maxHeight      = 'none';
+            img.style.objectFit      = '';
+            img.style.imageRendering = zoom >= 2 ? 'pixelated' : '';
+        }
+    }
+
+    btnIn.addEventListener('click',    () => { if (zoomIdx < STEPS.length - 1) { zoomIdx++; applyZoom(); } });
+    btnOut.addEventListener('click',   () => { if (zoomIdx > 0)                { zoomIdx--; applyZoom(); } });
+    btnReset.addEventListener('click', () => { zoomIdx = STEPS.indexOf(1); applyZoom(); });
+
+    applyZoom();
+}
+
+/* ─── Delete ─────────────────────────────────────────────────────────────── */
+window.deleteAsset = async function(id) {
+    if (!confirm('Delete this asset? This cannot be undone.')) return;
+    try {
+        await dispatchDelete(id);
+        allAssets = allAssets.filter(a => a.id !== id);
+        if (storageMode === 'local') {
+            const dAsset = displayAssets.find(a => a.id === id);
+            if (dAsset?.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(dAsset.blobUrl);
+            displayAssets = displayAssets.filter(a => a.id !== id);
+        }
+        const q = searchInput.value.trim().toLowerCase();
+        const renderSource = storageMode === 'local' ? displayAssets : allAssets;
+        renderGrid(q
+            ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q)))
+            : renderSource, q);
+        showToast('Asset deleted.', 'success');
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to delete asset.', 'error');
+    }
+};
+
+/* ─── Thumbnail ──────────────────────────────────────────────────────────── */
+function makeThumbnail(file) {
+    return new Promise(resolve => {
+        if (!file.type.startsWith('image/')) { resolve(null); return; }
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                const MAX = 480;
+                let w = img.width, h = img.height;
+                if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+                else       { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                c.getContext('2d').drawImage(img, 0, 0, w, h);
+                resolve(c.toDataURL('image/webp', 0.8));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+/* ─── Toast ──────────────────────────────────────────────────────────────── */
+let toastTimer;
+function showToast(msg, type = 'success') {
+    const t = $('toast');
+    $('toastMsg').textContent = msg;
+    t.className = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtBytes(b) {
+    if (b === 0) return '—';
+    if (b < 1024)            return b + ' B';
+    if (b < 1024 * 1024)     return (b / 1024).toFixed(1) + ' KB';
+    return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function svgGrid() {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
+}
+
+function svgSearch() {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+}
+
+function svgFile() {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/></svg>`;
+}
+
+function svgCheck() {
+    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/></svg>`;
+}
+
+function svgTrash() {
+    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+}
+
+window.removeTag = removeTag;
+
+window.addEventListener('beforeunload', () => {
+    displayAssets.forEach(a => {
+        if (a.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(a.blobUrl);
+    });
+});
+</script>
+</body>
+</html>
