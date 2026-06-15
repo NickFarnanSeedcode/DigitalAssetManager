@@ -1964,8 +1964,8 @@ window.handleCardClick = function(id, e) {
 // drag gesture — staging during dragstart is too late and the drag never starts.
 let dragPrep = { key: null, paths: null, pending: false, icon: null };
 
-// First available thumbnail in the target set — used as the drag cursor icon.
-function dragIconForIds(ids) {
+// First available thumbnail in the target set.
+function dragThumbForIds(ids) {
   for (const id of ids) {
     const a = allAssets.find((x) => x.id === id);
     if (a?.thumbnail) return a.thumbnail;
@@ -1973,11 +1973,32 @@ function dragIconForIds(ids) {
   return null;
 }
 
+// Thumbnails are WebP, which Electron's nativeImage can't decode. Re-encode to
+// PNG (via canvas) so it can be used as the drag cursor icon. Returns null on
+// any failure so the drag falls back to the system document icon.
+async function dragIconPngForIds(ids) {
+  const thumb = dragThumbForIds(ids);
+  if (!thumb) return null;
+  try {
+    const img = new Image();
+    img.src = thumb;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+}
+
 function prepareDrag(id) {
   const ids = exportTargetIds(id);
   const key = ids.join(',');
   if (dragPrep.key === key && (dragPrep.paths || dragPrep.pending)) return; // already staged/staging
-  dragPrep = { key, paths: null, pending: true, icon: dragIconForIds(ids) };
+  dragPrep = { key, paths: null, pending: true, icon: null };
+  dragIconPngForIds(ids).then((png) => { if (dragPrep.key === key) dragPrep.icon = png; });
   buildExportSpecs(ids)
     .then((specs) => window.electronAPI.prepareDrag(specs))
     .then((paths) => { if (dragPrep.key === key) { dragPrep.paths = paths; dragPrep.pending = false; } })
@@ -2001,9 +2022,11 @@ window.handleCardDragStart = function(id, event) {
     return;
   }
   // Fallback when staging hasn't finished yet (e.g. a very fast drag).
-  buildExportSpecs(ids)
-    .then((specs) => window.electronAPI.prepareDrag(specs))
-    .then((paths) => window.electronAPI.beginDrag(paths, dragIconForIds(ids)))
+  Promise.all([
+    buildExportSpecs(ids).then((specs) => window.electronAPI.prepareDrag(specs)),
+    dragIconPngForIds(ids),
+  ])
+    .then(([paths, icon]) => window.electronAPI.beginDrag(paths, icon))
     .catch((err) => { console.error('Drag export failed', err); showToast('Drag failed.', 'error'); });
 };
 
