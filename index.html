@@ -2312,7 +2312,7 @@ $('btnBulkSave').addEventListener('click', async () => {
 function renderBulkTagChips() {
     const wrap  = $('bulkTagWrap');
     const chips = bulkTags.map((t, i) =>
-        `<span class="tag-chip-edit">${escHtml(t)}<button type="button" onclick="removeBulkTag(${i})">×</button></span>`
+        `<div class="ti-chip">${escHtml(t)}<button type="button" onclick="removeBulkTag(${i})">×</button></div>`
     ).join('');
     wrap.innerHTML = chips + `<input class="tag-field" id="bulkTagField" type="text" placeholder="${bulkTags.length ? 'Add more…' : 'Type a tag and press Enter or comma…'}">`;
     const field = $('bulkTagField');
