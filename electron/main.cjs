@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, protocol, net, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, protocol, net, ipcMain } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { stage } = require('./staging.cjs');
@@ -60,7 +60,7 @@ app.whenReady().then(() => {
 
   ipcMain.on('begin-drag', (e, paths) => {
     if (Array.isArray(paths) && paths.length) {
-      startDrag(e.sender, paths, nativeImage.createEmpty());
+      startDrag(e.sender, paths); // native-ops supplies the macOS document icon
     }
   });
 

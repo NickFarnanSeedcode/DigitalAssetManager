@@ -3,18 +3,17 @@ const { clipboard, dialog, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-// macOS requires startDrag's icon to be a non-empty image or it throws.
-// A 1x1 transparent PNG satisfies that without drawing a visible cursor badge.
-// Built lazily so requiring this module under plain Node (tests, where
-// require('electron') is a path string) doesn't touch nativeImage.
-let _fallbackDragIcon = null;
-function fallbackDragIcon() {
-  if (!_fallbackDragIcon) {
-    _fallbackDragIcon = nativeImage.createFromDataURL(
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-    );
+// macOS requires startDrag's icon to be a real, non-empty image — a degenerate
+// or transparent icon makes the OS silently decline to start the drag. Use the
+// system multi-document icon. Built lazily and cached so requiring this module
+// under plain Node (tests, where require('electron') is a path string) doesn't
+// touch nativeImage.
+let _defaultDragIcon = null;
+function defaultDragIcon() {
+  if (!_defaultDragIcon) {
+    _defaultDragIcon = nativeImage.createFromNamedImage('NSImageNameMultipleDocuments');
   }
-  return _fallbackDragIcon;
+  return _defaultDragIcon;
 }
 
 function escapeXml(s) {
@@ -36,7 +35,7 @@ ${items}
 // Start a native drag of real files out to Finder/desktop.
 function startDrag(webContents, paths, icon) {
   if (!paths.length) return;
-  const dragIcon = icon && !icon.isEmpty() ? icon : fallbackDragIcon();
+  const dragIcon = icon && !icon.isEmpty() ? icon : defaultDragIcon();
   webContents.startDrag({ files: paths, icon: dragIcon });
 }
 
