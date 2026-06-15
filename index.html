@@ -1331,6 +1331,12 @@
         </svg>
         Copy
     </button>
+    <button class="btn-bulk" id="btnBulkSaveToFolder" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        Save to folder…
+    </button>
     <button class="btn-bulk danger" id="btnBulkDelete">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/>
@@ -1457,14 +1463,47 @@
 
 <script>
 /* ─── API ────────────────────────────────────────────────────────────────── */
+const API_BASE = window.electronAPI?.apiBase ?? '';
+
+// Filename presented to the OS: display name with its extension.
+function osFilename(a) {
+  const ext = (a.ext || '').replace(/^\./, '');
+  const base = a.name || a.id;
+  return ext && !base.toLowerCase().endsWith('.' + ext.toLowerCase()) ? `${base}.${ext}` : base;
+}
+
+// Build native export specs for a list of asset ids.
+// Cloud → { url }; Local → { bytes } read from the displayAssets object URL.
+async function buildExportSpecs(ids) {
+  const specs = [];
+  for (const id of ids) {
+    const a = allAssets.find((x) => x.id === id);
+    if (!a) continue;
+    const filename = osFilename(a);
+    if (storageMode === 'local') {
+      const d = displayAssets.find((x) => x.id === id) || a;
+      const res = await fetch(d.blobUrl);
+      specs.push({ id, filename, bytes: new Uint8Array(await res.arrayBuffer()) });
+    } else {
+      specs.push({ id, filename, url: a.blobUrl });
+    }
+  }
+  return specs;
+}
+
+// Resolve which ids an export action targets, given the asset the user acted on.
+function exportTargetIds(id) {
+  return selectedAssetIds.has(id) && selectedAssetIds.size > 0 ? [...selectedAssetIds] : [id];
+}
+
 async function apiGetAll() {
-    const res = await fetch('/api/assets');
+    const res = await fetch(`${API_BASE}/api/assets`);
     if (!res.ok) throw new Error('Failed to load assets');
     return res.json();
 }
 
 async function apiCreate(asset) {
-    const res = await fetch('/api/assets', {
+    const res = await fetch(`${API_BASE}/api/assets`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(asset),
@@ -1474,7 +1513,7 @@ async function apiCreate(asset) {
 }
 
 async function apiUpdate(id, patch) {
-    const res = await fetch(`/api/asset/${id}`, {
+    const res = await fetch(`${API_BASE}/api/asset/${id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(patch),
@@ -1484,12 +1523,12 @@ async function apiUpdate(id, patch) {
 }
 
 async function apiDelete(id) {
-    const res = await fetch(`/api/asset/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}/api/asset/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete asset');
 }
 
 async function apiUploadFile(file, id) {
-    const res = await fetch('/api/upload', {
+    const res = await fetch(`${API_BASE}/api/upload`, {
         method:  'POST',
         headers: {
             'Content-Type': file.type || 'application/octet-stream',
@@ -1504,7 +1543,7 @@ async function apiUploadFile(file, id) {
 }
 
 async function apiSuggestTags(thumbnail, filename, fileType) {
-    const res = await fetch('/api/suggest-tags', {
+    const res = await fetch(`${API_BASE}/api/suggest-tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ thumbnail, filename, fileType }),
@@ -1852,7 +1891,7 @@ function cardHTML(a) {
 
     const isSel = selectedAssetIds.has(a.id);
     return `
-    <div class="asset-card${isSel ? ' selected' : ''}" data-id="${a.id}" onclick="handleCardClick('${a.id}', event)">
+    <div class="asset-card${isSel ? ' selected' : ''}" data-id="${a.id}" draggable="${window.electronAPI ? 'true' : 'false'}" ondragstart="handleCardDragStart('${a.id}', event)" onclick="handleCardClick('${a.id}', event)">
         <div class="card-thumb">
             ${thumb}
             <div class="card-actions">
@@ -1900,6 +1939,14 @@ window.handleCardClick = function(id, e) {
     } else {
         editAsset(id);
     }
+};
+
+window.handleCardDragStart = function(id, event) {
+  if (!window.electronAPI) return;     // browser: keep default behavior
+  event.preventDefault();
+  buildExportSpecs(exportTargetIds(id))
+    .then((specs) => { if (specs.length) window.electronAPI.startDrag(specs); })
+    .catch((err) => { console.error('Drag export failed', err); showToast('Drag failed.', 'error'); });
 };
 
 window.toggleSelect = function(id) {
@@ -2077,6 +2124,19 @@ async function blobToPng(blob) {
 }
 
 $('btnBulkCopy').addEventListener('click', async () => {
+    if (window.electronAPI) {
+        const ids = [...selectedAssetIds];
+        if (!ids.length) return;
+        try {
+            const specs = await buildExportSpecs(ids);
+            await window.electronAPI.copyFiles(specs);
+            showToast(`${specs.length} file${specs.length !== 1 ? 's' : ''} copied — paste into a folder.`, 'success');
+        } catch (err) {
+            console.error('Copy files failed', err);
+            showToast('Copy failed.', 'error');
+        }
+        return;
+    }
     const assets = [...selectedAssetIds]
         .map(id => allAssets.find(a => a.id === id))
         .filter(Boolean);
@@ -2110,6 +2170,22 @@ $('btnBulkCopy').addEventListener('click', async () => {
         showToast('Copy failed — clipboard access denied.', 'error');
     }
 });
+
+if (window.electronAPI) {
+    $('btnBulkSaveToFolder').style.display = '';
+    $('btnBulkSaveToFolder').addEventListener('click', async () => {
+        const ids = [...selectedAssetIds];
+        if (!ids.length) return;
+        try {
+            const specs = await buildExportSpecs(ids);
+            const { saved } = await window.electronAPI.saveToFolder(specs);
+            if (saved) showToast(`Saved ${saved} file${saved !== 1 ? 's' : ''}.`, 'success');
+        } catch (err) {
+            console.error('Save to folder failed', err);
+            showToast('Save failed.', 'error');
+        }
+    });
+}
 
 $('btnBulkTag').addEventListener('click', () => {
     const count = selectedAssetIds.size;
