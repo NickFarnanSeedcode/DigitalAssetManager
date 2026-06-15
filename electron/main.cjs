@@ -49,11 +49,19 @@ app.whenReady().then(() => {
 
   const stagedDirs = [];
 
-  ipcMain.handle('stage-and-drag', async (e, specs) => {
+  // Drag-out is two-phase so startDrag can fire synchronously inside the
+  // dragstart gesture: 'prepare-drag' stages files (async, on pointerdown) and
+  // returns their paths; 'begin-drag' (on dragstart) fires startDrag at once.
+  ipcMain.handle('prepare-drag', async (e, specs) => {
     const { dir, paths } = await stage(specs);
     stagedDirs.push(dir);
-    startDrag(e.sender, paths, nativeImage.createEmpty());
-    return { dragged: paths.length };
+    return paths;
+  });
+
+  ipcMain.on('begin-drag', (e, paths) => {
+    if (Array.isArray(paths) && paths.length) {
+      startDrag(e.sender, paths, nativeImage.createEmpty());
+    }
   });
 
   ipcMain.handle('stage-and-copy', async (e, specs) => {

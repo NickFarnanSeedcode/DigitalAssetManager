@@ -1898,7 +1898,7 @@ function cardHTML(a) {
 
     const isSel = selectedAssetIds.has(a.id);
     return `
-    <div class="asset-card${isSel ? ' selected' : ''}" data-id="${a.id}" draggable="${window.electronAPI ? 'true' : 'false'}" ondragstart="handleCardDragStart('${a.id}', event)" onclick="handleCardClick('${a.id}', event)">
+    <div class="asset-card${isSel ? ' selected' : ''}" data-id="${a.id}" draggable="${window.electronAPI ? 'true' : 'false'}" onpointerdown="handleCardPointerDown('${a.id}', event)" ondragstart="handleCardDragStart('${a.id}', event)" onclick="handleCardClick('${a.id}', event)">
         <div class="card-thumb">
             ${thumb}
             <div class="card-actions">
@@ -1948,11 +1948,41 @@ window.handleCardClick = function(id, e) {
     }
 };
 
+// Native drag-out is two-phase: stage files on pointerdown (so they're ready),
+// then fire startDrag synchronously on dragstart. startDrag must run inside the
+// drag gesture — staging during dragstart is too late and the drag never starts.
+let dragPrep = { key: null, paths: null, pending: false };
+
+function prepareDrag(id) {
+  const ids = exportTargetIds(id);
+  const key = ids.join(',');
+  if (dragPrep.key === key && (dragPrep.paths || dragPrep.pending)) return; // already staged/staging
+  dragPrep = { key, paths: null, pending: true };
+  buildExportSpecs(ids)
+    .then((specs) => window.electronAPI.prepareDrag(specs))
+    .then((paths) => { if (dragPrep.key === key) { dragPrep.paths = paths; dragPrep.pending = false; } })
+    .catch((err) => { console.error('prepareDrag failed', err); if (dragPrep.key === key) dragPrep.pending = false; });
+}
+
+window.handleCardPointerDown = function(id, event) {
+  if (!window.electronAPI) return;
+  if (event.button !== 0) return;                    // primary button only
+  if (event.target.closest('.action-btn')) return;  // not the select/delete buttons
+  prepareDrag(id);
+};
+
 window.handleCardDragStart = function(id, event) {
   if (!window.electronAPI) return;     // browser: keep default behavior
   event.preventDefault();
+  const key = exportTargetIds(id).join(',');
+  if (dragPrep.key === key && dragPrep.paths) {
+    window.electronAPI.beginDrag(dragPrep.paths);   // ready: fire immediately (in-gesture)
+    return;
+  }
+  // Fallback when staging hasn't finished yet (e.g. a very fast drag).
   buildExportSpecs(exportTargetIds(id))
-    .then((specs) => { if (specs.length) window.electronAPI.startDrag(specs); })
+    .then((specs) => window.electronAPI.prepareDrag(specs))
+    .then((paths) => window.electronAPI.beginDrag(paths))
     .catch((err) => { console.error('Drag export failed', err); showToast('Drag failed.', 'error'); });
 };
 
