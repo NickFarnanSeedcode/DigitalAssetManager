@@ -28,7 +28,15 @@ const APP_ROOT = path.join(__dirname, '..');
 // showDirectoryPicker / clipboard / crypto.randomUUID behave as on https://.
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  // damlocal://local/{filename} — streams files from the user's Local-mode
+  // folder. `stream: true` enables HTTP range requests so videos can scrub.
+  { scheme: 'damlocal', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true } },
 ]);
+
+// Root of the Local-mode folder. Renderer pushes this in via local:setRoot at
+// boot and whenever the user picks a new folder. The damlocal:// handler
+// refuses to serve anything until it's set.
+let localRoot = null;
 
 let mainWindow = null;
 
@@ -56,6 +64,19 @@ app.whenReady().then(() => {
     const filePath = path.join(APP_ROOT, rel);
     return net.fetch(pathToFileURL(filePath).toString());
   });
+
+  protocol.handle('damlocal', (request) => {
+    if (!localRoot) return new Response('Local folder not set', { status: 503 });
+    const url = new URL(request.url);
+    const filename = decodeURIComponent(url.pathname.replace(/^\//, ''));
+    try {
+      const filePath = safeJoin(localRoot, filename);
+      return net.fetch(pathToFileURL(filePath).toString());
+    } catch {
+      return new Response('Bad filename', { status: 400 });
+    }
+  });
+
   createWindow();
 
   app.on('activate', () => {
@@ -133,6 +154,12 @@ app.whenReady().then(() => {
     await fsp.writeFile(safeJoin(dirPath, filename), Buffer.from(bytes));
   });
 
+  // Fast path for large files: copy directly from a native source path. Avoids
+  // pulling the whole file into renderer memory and across IPC.
+  ipcMain.handle('local:copyFromPath', async (e, dirPath, filename, sourcePath) => {
+    await fsp.copyFile(sourcePath, safeJoin(dirPath, filename));
+  });
+
   ipcMain.handle('local:readFile', async (e, dirPath, filename) => {
     return await fsp.readFile(safeJoin(dirPath, filename));
   });
@@ -143,6 +170,24 @@ app.whenReady().then(() => {
     } catch (err) {
       if (err.code !== 'ENOENT') throw err;
     }
+  });
+
+  // Track the active Local-mode folder so damlocal:// can stream from it.
+  ipcMain.handle('local:setRoot', async (e, dirPath) => {
+    localRoot = typeof dirPath === 'string' && dirPath ? dirPath : null;
+  });
+
+  // Native Save-As: copy a Local-mode file to a user-chosen location with
+  // fs.copyFile. Zero bytes through IPC, so large videos work.
+  ipcMain.handle('local:saveAs', async (e, filename, suggestedName) => {
+    if (!localRoot) throw new Error('Local folder not set');
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: suggestedName || filename,
+    });
+    if (canceled || !filePath) return { saved: false };
+    await fsp.copyFile(safeJoin(localRoot, filename), filePath);
+    return { saved: true, filePath };
   });
 
   // AI tag suggestions — user-supplied Google Vision API key, stored encrypted

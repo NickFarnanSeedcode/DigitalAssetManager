@@ -21,7 +21,7 @@ function safeFilename(spec, used) {
 }
 
 // Stage a list of asset specs into a fresh temp directory and return their paths.
-// Spec shape: { id, filename, bytes?: Uint8Array, url?: string }
+// Spec shape: { id, filename, bytes?: Uint8Array, url?: string, sourcePath?: string }
 async function stage(specs, opts = {}) {
   const fetchImpl = opts.fetch || globalThis.fetch;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'digitaldam-'));
@@ -29,17 +29,18 @@ async function stage(specs, opts = {}) {
   const paths = [];
   for (const spec of specs) {
     const dest = path.join(dir, safeFilename(spec, used));
-    let buf;
-    if (spec.bytes != null) {
-      buf = Buffer.from(spec.bytes);
+    if (spec.sourcePath) {
+      // Fast path: kernel-level copy from a native source path. No buffering.
+      fs.copyFileSync(spec.sourcePath, dest);
+    } else if (spec.bytes != null) {
+      fs.writeFileSync(dest, Buffer.from(spec.bytes));
     } else if (spec.url) {
       const res = await fetchImpl(spec.url);
       if (!res.ok) throw new Error(`Failed to fetch ${spec.url}: ${res.status}`);
-      buf = Buffer.from(await res.arrayBuffer());
+      fs.writeFileSync(dest, Buffer.from(await res.arrayBuffer()));
     } else {
-      throw new Error(`Spec for ${spec.id} has neither bytes nor url`);
+      throw new Error(`Spec for ${spec.id} has neither bytes, url, nor sourcePath`);
     }
-    fs.writeFileSync(dest, buf);
     paths.push(dest);
   }
   return { dir, paths };

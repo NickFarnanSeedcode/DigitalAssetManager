@@ -1406,7 +1406,7 @@
 
         <div class="settings-section-label">Storage</div>
 
-        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:12px;">
+        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:12px; display:none;">
             <div class="settings-row-info">
                 <span class="settings-row-title">Storage Mode</span>
                 <span class="settings-row-desc">Cloud uses Supabase &amp; Vercel Blob. Local stores everything on your computer. Switching modes does not migrate assets.</span>
@@ -1498,7 +1498,8 @@ function osFilename(a) {
 }
 
 // Build native export specs for a list of asset ids.
-// Cloud → { url }; Local → { bytes } read from the displayAssets object URL.
+// Cloud → { url }; Local (Electron) → { sourcePath } for kernel-level copy;
+// Local (browser) → { bytes } read from the displayAssets object URL.
 async function buildExportSpecs(ids) {
     const specs = [];
     for (const id of ids) {
@@ -1506,10 +1507,15 @@ async function buildExportSpecs(ids) {
         if (!a) continue;
         const filename = osFilename(a);
         if (storageMode === 'local') {
-            const d = displayAssets.find((x) => x.id === id);
-            if (!d?.blobUrl?.startsWith('blob:')) throw new Error(`Object URL not available for asset ${id}`);
-            const res = await fetch(d.blobUrl);
-            specs.push({ id, filename, bytes: new Uint8Array(await res.arrayBuffer()) });
+            if (electronLocal && localDirPath) {
+                // a.blobUrl is the canonical filename ("{id}.{ext}") in local mode.
+                specs.push({ id, filename, sourcePath: `${localDirPath}/${a.blobUrl}` });
+            } else {
+                const d = displayAssets.find((x) => x.id === id);
+                if (!d?.blobUrl?.startsWith('blob:')) throw new Error(`Object URL not available for asset ${id}`);
+                const res = await fetch(d.blobUrl);
+                specs.push({ id, filename, bytes: new Uint8Array(await res.arrayBuffer()) });
+            }
         } else {
             specs.push({ id, filename, url: a.blobUrl });
         }
@@ -1666,6 +1672,12 @@ async function localGetAll() {
 
 async function localCopyFile(file, filename) {
     if (electronLocal) {
+        // Fast path: when the File came from drag-drop or the picker, Electron
+        // exposes the real disk path. Copy at the kernel level — no buffering
+        // in renderer memory, no IPC payload. arrayBuffer() chokes on big videos.
+        if (file.path && electronLocal.copyFromPath) {
+            return electronLocal.copyFromPath(localDirPath, filename, file.path);
+        }
         const bytes = new Uint8Array(await file.arrayBuffer());
         return electronLocal.writeFile(localDirPath, filename, bytes);
     }
@@ -1711,9 +1723,9 @@ async function localResolveObjectURLs(assets) {
         try {
             let url;
             if (electronLocal) {
-                const bytes = await electronLocal.readFile(localDirPath, a.blobUrl);
-                const blob  = new Blob([bytes], { type: a.fileType || 'application/octet-stream' });
-                url = URL.createObjectURL(blob);
+                // Stream via the damlocal:// custom protocol — no bytes read
+                // into renderer memory. Supports range requests for video.
+                url = `damlocal://local/${encodeURIComponent(a.blobUrl)}`;
             } else {
                 const fh   = await localDirHandle.getFileHandle(a.blobUrl);
                 const file = await fh.getFile();
@@ -1812,8 +1824,9 @@ let selectedAssetIds = new Set();
 let lastSelectedId   = null;
 let bulkTags         = [];
 
-// Storage mode state
-let storageMode    = localStorage.getItem('storageMode') || 'local';
+// Storage mode state — Cloud is currently hidden in the UI; forced to local.
+let storageMode    = 'local';
+localStorage.setItem('storageMode', 'local');
 let localDirHandle = null;                                    // browser FS Access API
 const electronLocal = window.electronAPI?.local || null;      // Electron Node-fs IPC bridge
 let localDirPath   = electronLocal ? (localStorage.getItem('localDirPath') || null) : null;
@@ -1847,6 +1860,7 @@ const btnSave     = $('btnSave');
                 showToast('Choose a local folder in Settings to get started.', 'error');
                 return;
             }
+            if (electronLocal.setRoot) await electronLocal.setRoot(localDirPath);
         } else {
             try { localDirHandle = await localDB.getHandle(); } catch (e) {
                 console.warn('[boot] IndexedDB read failed:', e);
@@ -2414,14 +2428,15 @@ $('btnModalDownload').addEventListener('click', async () => {
         if (!canonAsset?.blobUrl) return;
         if (!electronLocal && !localDirHandle) return;
         try {
-            let file;
             if (electronLocal) {
-                const bytes = await electronLocal.readFile(localDirPath, canonAsset.blobUrl);
-                file = new Blob([bytes], { type: canonAsset.fileType || 'application/octet-stream' });
-            } else {
-                const fh = await localDirHandle.getFileHandle(canonAsset.blobUrl);
-                file = await fh.getFile();
+                // Native save dialog + fs.copyFile — no bytes through IPC,
+                // so large videos work fine.
+                const res = await electronLocal.saveAs(canonAsset.blobUrl, osFilename(canonAsset));
+                if (res?.saved) showToast('File saved.', 'success');
+                return;
             }
+            const fh   = await localDirHandle.getFileHandle(canonAsset.blobUrl);
+            const file = await fh.getFile();
             const saveHandle = await window.showSaveFilePicker({ suggestedName: canonAsset.blobUrl });
             const w          = await saveHandle.createWritable();
             await w.write(file);
@@ -2598,6 +2613,7 @@ async function chooseLocalFolder() {
             if (!dirPath) return false;
             localDirPath = dirPath;
             localStorage.setItem('localDirPath', dirPath);
+            if (electronLocal.setRoot) await electronLocal.setRoot(dirPath);
             syncSettingsUI();
             $('toast').classList.remove('show');
             return true;
