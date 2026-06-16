@@ -866,6 +866,29 @@
 
         .form-input::placeholder { color: var(--text-muted); }
 
+        .form-textarea {
+            width: 100%;
+            min-height: 90px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+            outline: none;
+            resize: vertical;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .form-textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-muted);
+        }
+
+        .form-textarea::placeholder { color: var(--text-muted); }
+
         /* ── TAG INPUT ── */
         .tag-wrap {
             background: var(--bg-secondary);
@@ -1300,6 +1323,11 @@
                 <input class="tag-field" id="tagField" type="text" placeholder="Type a tag and press Enter or comma…">
             </div>
             <div class="tag-hint">Press <strong>Enter</strong> or <strong>,</strong> to add · <strong>Backspace</strong> to remove last</div>
+        </div>
+
+        <div class="form-group" id="notesGroup">
+            <label class="form-label" for="assetNotes">Notes</label>
+            <textarea class="form-textarea" id="assetNotes" placeholder="Optional notes about this asset…"></textarea>
         </div>
 
         <!-- AI tag suggestions (new assets only) -->
@@ -2710,6 +2738,8 @@ function clearForm() {
     selectedFiles   = [];
     currentTags     = [];
     assetName.value = '';
+    $('assetNotes').value = '';
+    $('notesGroup').style.display = '';
     fileInput.value = '';
     $('btnModalDownload').style.display = 'none';
     dropZone.style.display   = '';
@@ -2789,6 +2819,7 @@ function handleFiles(fileList) {
     } else {
         fileBanner.style.display = 'none';
         $('nameGroup').style.display = 'none';
+        $('notesGroup').style.display = 'none';
         btnSave.textContent = `Save ${selectedFiles.length} Assets`;
         renderFileList();
         const firstImage = selectedFiles.find(f => f.type.startsWith('image/')) || selectedFiles[0];
@@ -2819,6 +2850,7 @@ window.clearAllFiles = function() {
     fileInput.value = '';
     $('fileList').classList.remove('visible');
     $('nameGroup').style.display = '';
+    $('notesGroup').style.display = '';
     dropZone.style.display = '';
     btnSave.textContent = 'Save Asset';
     clearSuggestions();
@@ -2971,17 +3003,18 @@ window.acceptAllSuggestions = acceptAllSuggestions;
 /* ─── Save ───────────────────────────────────────────────────────────────── */
 btnSave.addEventListener('click', async () => {
     if (editingId) {
-        const name = assetName.value.trim();
+        const name  = assetName.value.trim();
+        const notes = $('assetNotes').value;
         if (!name) { showToast('Please enter an asset name.', 'error'); return; }
         btnSave.disabled = true;
         btnSave.textContent = 'Saving…';
         try {
-            await dispatchUpdate(editingId, { name, tags: [...currentTags] });
+            await dispatchUpdate(editingId, { name, tags: [...currentTags], notes });
             const idx = allAssets.findIndex(a => a.id === editingId);
-            if (idx !== -1) { allAssets[idx].name = name; allAssets[idx].tags = [...currentTags]; }
+            if (idx !== -1) { allAssets[idx].name = name; allAssets[idx].tags = [...currentTags]; allAssets[idx].notes = notes; }
             if (storageMode === 'local') {
                 const dIdx = displayAssets.findIndex(a => a.id === editingId);
-                if (dIdx !== -1) { displayAssets[dIdx].name = name; displayAssets[dIdx].tags = [...currentTags]; }
+                if (dIdx !== -1) { displayAssets[dIdx].name = name; displayAssets[dIdx].tags = [...currentTags]; displayAssets[dIdx].notes = notes; }
             }
             closeModal();
             const q = searchInput.value.trim().toLowerCase();
@@ -3027,6 +3060,7 @@ btnSave.addEventListener('click', async () => {
             const asset = {
                 id, name,
                 tags:      [...currentTags],
+                notes:     total === 1 ? $('assetNotes').value : '',
                 ext,
                 fileType:  file.type,
                 fileSize:  file.size,
@@ -3069,6 +3103,7 @@ window.editAsset = function(id) {
     btnSave.textContent    = 'Save Changes';
 
     assetName.value = a.name;
+    $('assetNotes').value = a.notes || '';
     currentTags     = [...a.tags];
     renderTagChips();
 
