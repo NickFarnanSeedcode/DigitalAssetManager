@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-The project has two core parts — a **frontend** and a **backend** — plus an optional **Electron desktop shell** (`electron/`) that wraps the same frontend to add native file operations. macOS only.
+The project has two core parts — a **frontend** and a **backend** — plus an optional **Electron desktop shell** (`electron/`) that wraps the same frontend to add native file operations. Packages for macOS (`.dmg`) and Windows (`.exe`).
 
 ### Frontend — `index.html`
 One self-contained file with three sections:
@@ -48,14 +48,14 @@ Vercel serverless functions (Node.js, ES modules):
 
 ### Desktop — `electron/` (optional)
 
-An Electron shell wraps the **same `index.html`** to add native OS file operations a browser can't do (multi-file drag-out, copy-as-files, save-to-folder). The Vercel web app is unchanged; native features are additive and feature-detected via `window.electronAPI`. Electron files use the `.cjs` extension (the package is `"type": "module"`, so `.cjs` forces CommonJS). macOS only.
+An Electron shell wraps the **same `index.html`** to add native OS file operations a browser can't do (multi-file drag-out, copy-as-files, save-to-folder). The Vercel web app is unchanged; native features are additive and feature-detected via `window.electronAPI`. Electron files use the `.cjs` extension (the package is `"type": "module"`, so `.cjs` forces CommonJS). Builds for macOS and Windows.
 
 - **`electron/main.cjs`** — app lifecycle. Registers a custom **`app://` scheme** (`standard` + `secure`) and serves the bundled `index.html` from it, so secure-context APIs (`showDirectoryPicker`, clipboard, `crypto.randomUUID`) behave as on `https://`. Window uses `contextIsolation: true`, `nodeIntegration: false` (sandbox stays on). Wires the `prepare-drag` / `begin-drag` / `stage-and-copy` / `stage-and-save` IPC handlers; cleans temp dirs on close.
 - **`electron/preload.cjs`** — exposes `window.electronAPI` via `contextBridge`: `{ apiBase, prepareDrag, beginDrag, copyFiles, saveToFolder }`. A sandboxed preload can't `require()` local files, so `apiBase` is passed from main via `webPreferences.additionalArguments` and read from `process.argv`.
 - **`electron/config.cjs`** — single source of `API_BASE` (the Vercel origin Cloud-mode `/api/*` calls resolve to under `app://`). Override with the `DAM_API_BASE` env var.
 - **`electron/staging.cjs`** — `safeFilename()` + `stage(specs)`: writes asset "specs" into a fresh temp dir and returns paths. Cloud specs carry a `url` (fetched in main); Local specs carry `bytes`. Unit-tested with `node:test`.
-- **`electron/native-ops.cjs`** — `startDrag` (uses the dragged asset's icon, falling back to a real macOS document icon — a degenerate/empty icon makes macOS silently refuse the drag), `copyFiles` (writes an `NSFilenamesPboardType` plist so Finder pastes real files), `saveToFolder` (native dialog + copy). `buildFilenamesPlist` is unit-tested.
-- **`electron-builder.yml`** — packages an unsigned macOS arm64 `.dmg`.
+- **`electron/native-ops.cjs`** — `startDrag` (uses the dragged asset's icon; falls back to `NSImageNameMultipleDocuments` on macOS or the bundled `assets/icon.png` on Windows — a degenerate/empty icon makes the OS silently refuse the drag), `copyFiles` (writes an `NSFilenamesPboardType` plist on macOS, a `CF_HDROP` DROPFILES buffer on Windows), `saveToFolder` (native dialog + copy). `buildFilenamesPlist` and `buildDropfilesBuffer` are unit-tested.
+- **`electron-builder.yml`** — packages an unsigned macOS arm64 `.dmg` and a Windows x64 NSIS installer (`.exe`).
 
 Scripts: `npm run electron` (dev), `npm test` (`node:test` over the electron modules), `npm run dist` (build the `.dmg`).
 
@@ -248,5 +248,5 @@ Open/close by toggling `.open` on the overlay element. Always wire up: close but
 - **Local mode — no migration**: Switching between Cloud and Local modes starts fresh in the new store. Assets from the previous mode are not transferred.
 - **Local mode — permission on reload (browser only)**: In a plain browser, re-granting folder access requires a user gesture, so the app shows a **Reconnect folder** prompt on reload. In Electron there is no such prompt — Node `fs` reopens the saved folder silently.
 - **AI tag suggestions in local mode**: `apiSuggestTags` always calls the cloud endpoint regardless of storage mode — an internet connection is still required for AI suggestions.
-- **Electron — macOS only**: Native drag/copy use macOS-specific APIs (`NSFilenamesPboardType`, named system images) and packaging targets a macOS arm64 `.dmg`. The `.dmg` is unsigned (right-click → Open on first launch).
+- **Electron — desktop platforms**: Builds for macOS arm64 (`.dmg`) and Windows x64 (NSIS `.exe`). Both builds are unsigned — macOS needs right-click → Open on first launch; Windows shows a SmartScreen warning (More info → Run anyway). Native clipboard formats are branched per-platform (`NSFilenamesPboardType` on macOS, `CF_HDROP` on Windows).
 - **Electron — drag staging**: Drag-out copies files to a temp dir first (Cloud downloads from Vercel Blob; Local copies from disk). Large/many files go over IPC and aren't streamed — fine for images, slower for big video sets.

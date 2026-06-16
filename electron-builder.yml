@@ -13,3 +13,11 @@ mac:
       arch: arm64
   category: public.app-category.productivity
   icon: assets/icon.png
+win:
+  target:
+    - target: nsis
+      arch: x64
+  icon: assets/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
