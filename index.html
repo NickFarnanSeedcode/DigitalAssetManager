@@ -422,9 +422,27 @@
 
         /* colored ext badges */
         .ext-pdf  { background: rgba(255,77,106,.15); color: #FF8096; }
-        .ext-mp4, .ext-mov, .ext-avi, .ext-webm { background: rgba(123,94,255,.2); color: #A48CFF; }
-        .ext-ai, .ext-psd, .ext-xd, .ext-fig { background: rgba(255,166,0,.15); color: #FFB340; }
-        .ext-zip, .ext-rar, .ext-7z { background: rgba(0,180,255,.15); color: #40C8FF; }
+        .ext-mp4, .ext-mov, .ext-avi, .ext-mkv, .ext-m4v { background: rgba(123,94,255,.2); color: #A48CFF; }
+        .ext-mp3, .ext-wav, .ext-ogg, .ext-webm, .ext-m4a, .ext-aac, .ext-flac { background: rgba(196,144,255,.18); color: #D4ACFF; }
+        .ext-doc, .ext-docx, .ext-odt, .ext-pages { background: rgba(91,163,245,.15); color: #7DB7F8; }
+        .ext-xls, .ext-xlsx, .ext-csv, .ext-tsv, .ext-ods, .ext-numbers { background: rgba(72,199,116,.15); color: #6FDB95; }
+        .ext-ppt, .ext-pptx, .ext-key, .ext-odp { background: rgba(255,179,64,.15); color: #FFC470; }
+        .ext-ai, .ext-psd, .ext-xd, .ext-fig, .ext-sketch { background: rgba(255,166,0,.15); color: #FFB340; }
+        .ext-zip, .ext-rar, .ext-7z, .ext-tar, .ext-gz { background: rgba(0,180,255,.15); color: #40C8FF; }
+        .ext-js, .ext-ts, .ext-jsx, .ext-tsx, .ext-html, .ext-css, .ext-json, .ext-py, .ext-rb, .ext-go, .ext-sh, .ext-md, .ext-xml, .ext-yml, .ext-yaml { background: rgba(138,180,248,.15); color: #A5C5F9; }
+        .ext-txt, .ext-rtf, .ext-log { background: rgba(170,170,190,.15); color: #BBBBD0; }
+
+        /* per-category icon tints */
+        .file-icon-wrap.cat-pdf      svg { color: #FF8096; }
+        .file-icon-wrap.cat-video    svg { color: #A48CFF; }
+        .file-icon-wrap.cat-audio    svg { color: #D4ACFF; }
+        .file-icon-wrap.cat-doc      svg { color: #7DB7F8; }
+        .file-icon-wrap.cat-sheet    svg { color: #6FDB95; }
+        .file-icon-wrap.cat-slides   svg { color: #FFC470; }
+        .file-icon-wrap.cat-design   svg { color: #FFB340; }
+        .file-icon-wrap.cat-archive  svg { color: #40C8FF; }
+        .file-icon-wrap.cat-code     svg { color: #A5C5F9; }
+        .file-icon-wrap.cat-text     svg { color: #BBBBD0; }
 
         .card-actions {
             position: absolute;
@@ -1983,7 +2001,7 @@ function cardHTML(a) {
     } else if (a.thumbnail) {
         thumb = `<img src="${a.thumbnail}" alt="${escHtml(a.name)}" loading="lazy">`;
     } else {
-        thumb = `<div class="file-icon-wrap">${svgFile()}<span class="file-ext-badge ext-${ext}">${escHtml(ext)}</span></div>`;
+        thumb = `<div class="file-icon-wrap cat-${extCategory(ext)}">${svgIconForExt(ext)}<span class="file-ext-badge ext-${ext}">${escHtml(ext)}</span></div>`;
     }
 
     const isSel = selectedAssetIds.has(a.id);
@@ -3085,6 +3103,9 @@ function showEditPreview(a) {
     } else if (mime.startsWith('audio/') || ['mp3','wav','ogg','m4a','aac','flac'].includes(ext)) {
         html = `<audio src="${url}" controls style="width:100%;padding:20px 16px;display:block;"></audio>`;
         modal.classList.add('has-preview');
+    } else if (mime === 'application/pdf' || ext === 'pdf') {
+        html = `<embed src="${url}" type="application/pdf" style="width:100%;height:60vh;display:block;border:0;background:#1a1d2e;">`;
+        modal.classList.add('has-preview');
     } else if (mime.startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif','tiff'].includes(ext)) {
         html = `<div class="preview-img-scroll" id="previewImgScroll">
             <img id="previewImg" src="${url}" alt="${escHtml(a.name)}">
@@ -3243,6 +3264,54 @@ function svgFile() {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
         <polyline points="14 2 14 8 20 8"/></svg>`;
+}
+
+const EXT_CATEGORY = {
+    pdf: 'pdf',
+    mp4:'video', mov:'video', avi:'video', mkv:'video', m4v:'video', webm:'video',
+    mp3:'audio', wav:'audio', ogg:'audio', m4a:'audio', aac:'audio', flac:'audio',
+    doc:'doc', docx:'doc', odt:'doc', pages:'doc', rtf:'doc',
+    xls:'sheet', xlsx:'sheet', csv:'sheet', tsv:'sheet', ods:'sheet', numbers:'sheet',
+    ppt:'slides', pptx:'slides', key:'slides', odp:'slides',
+    ai:'design', psd:'design', xd:'design', fig:'design', sketch:'design',
+    zip:'archive', rar:'archive', '7z':'archive', tar:'archive', gz:'archive',
+    js:'code', ts:'code', jsx:'code', tsx:'code', html:'code', css:'code',
+    json:'code', py:'code', rb:'code', go:'code', sh:'code', md:'code',
+    xml:'code', yml:'code', yaml:'code',
+    txt:'text', log:'text',
+};
+
+function extCategory(ext) {
+    return EXT_CATEGORY[(ext || '').toLowerCase()] || 'generic';
+}
+
+function svgIconForExt(ext) {
+    const cat = extCategory(ext);
+    const doc = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+    const open = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">';
+    switch (cat) {
+        case 'video':
+            return `${open}<rect x="2" y="6" width="20" height="12" rx="2"/><polygon points="10 9 16 12 10 15" fill="currentColor" stroke="none"/></svg>`;
+        case 'audio':
+            return `${open}<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+        case 'pdf':
+        case 'doc':
+            return `${open}${doc}<line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="19" x2="13" y2="19"/></svg>`;
+        case 'sheet':
+            return `${open}${doc}<line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="12" y1="11" x2="12" y2="19"/></svg>`;
+        case 'slides':
+            return `${open}${doc}<line x1="9" y1="18" x2="9" y2="15"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="15" y1="18" x2="15" y2="14"/></svg>`;
+        case 'design':
+            return `${open}${doc}<circle cx="12" cy="15" r="2.5"/></svg>`;
+        case 'archive':
+            return `${open}${doc}<line x1="12" y1="11" x2="12" y2="12"/><line x1="12" y1="14" x2="12" y2="15"/><line x1="12" y1="17" x2="12" y2="18"/></svg>`;
+        case 'code':
+            return `${open}${doc}<polyline points="10 13 8 15 10 17"/><polyline points="14 13 16 15 14 17"/></svg>`;
+        case 'text':
+            return `${open}${doc}<line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="8" y1="19" x2="14" y2="19"/></svg>`;
+        default:
+            return svgFile();
+    }
 }
 
 function svgCheck() {
