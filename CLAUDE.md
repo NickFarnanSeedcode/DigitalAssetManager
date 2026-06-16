@@ -50,11 +50,13 @@ Vercel serverless functions (Node.js, ES modules):
 
 An Electron shell wraps the **same `index.html`** to add native OS file operations a browser can't do (multi-file drag-out, copy-as-files, save-to-folder). The Vercel web app is unchanged; native features are additive and feature-detected via `window.electronAPI`. Electron files use the `.cjs` extension (the package is `"type": "module"`, so `.cjs` forces CommonJS). Builds for macOS and Windows.
 
-- **`electron/main.cjs`** — app lifecycle. Registers a custom **`app://` scheme** (`standard` + `secure`) and serves the bundled `index.html` from it, so secure-context APIs (`showDirectoryPicker`, clipboard, `crypto.randomUUID`) behave as on `https://`. Window uses `contextIsolation: true`, `nodeIntegration: false` (sandbox stays on). Wires the `prepare-drag` / `begin-drag` / `stage-and-copy` / `stage-and-save` IPC handlers; cleans temp dirs on close.
-- **`electron/preload.cjs`** — exposes `window.electronAPI` via `contextBridge`: `{ apiBase, prepareDrag, beginDrag, copyFiles, saveToFolder }`. A sandboxed preload can't `require()` local files, so `apiBase` is passed from main via `webPreferences.additionalArguments` and read from `process.argv`.
+- **`electron/main.cjs`** — app lifecycle. Registers a custom **`app://` scheme** (`standard` + `secure`) and serves the bundled `index.html` from it, so secure-context APIs (`showDirectoryPicker`, clipboard, `crypto.randomUUID`) behave as on `https://`. Window uses `contextIsolation: true`, `nodeIntegration: false` (sandbox stays on). Wires the `prepare-drag` / `begin-drag` / `stage-and-copy` / `stage-and-save` / `local:*` / `ai:*` IPC handlers; cleans temp dirs on close.
+- **`electron/preload.cjs`** — exposes `window.electronAPI` via `contextBridge`: `{ apiBase, prepareDrag, beginDrag, copyFiles, saveToFolder, local, ai }`. A sandboxed preload can't `require()` local files, so `apiBase` is passed from main via `webPreferences.additionalArguments` and read from `process.argv`.
 - **`electron/config.cjs`** — single source of `API_BASE` (the Vercel origin Cloud-mode `/api/*` calls resolve to under `app://`). Override with the `DAM_API_BASE` env var.
 - **`electron/staging.cjs`** — `safeFilename()` + `stage(specs)`: writes asset "specs" into a fresh temp dir and returns paths. Cloud specs carry a `url` (fetched in main); Local specs carry `bytes`. Unit-tested with `node:test`.
 - **`electron/native-ops.cjs`** — `startDrag` (uses the dragged asset's icon; falls back to `NSImageNameMultipleDocuments` on macOS or the bundled `assets/icon.png` on Windows — a degenerate/empty icon makes the OS silently refuse the drag), `copyFiles` (writes an `NSFilenamesPboardType` plist on macOS, a `CF_HDROP` DROPFILES buffer on Windows), `saveToFolder` (native dialog + copy). `buildFilenamesPlist` and `buildDropfilesBuffer` are unit-tested.
+- **`electron/ai-key.cjs`** — persists the user's Google Cloud Vision API key encrypted via Electron's `safeStorage` (macOS Keychain / Windows Credential Vault). Stored at `userData/vision-key.enc`. The raw key never crosses back to the renderer — only `{ hasKey }` does.
+- **`electron/suggest-tags.cjs`** — port of `api/suggest-tags.js`. Calls Google Vision directly with the stored key (bypassing the Vercel endpoint and its CORS), or falls back to filename-derived tags for non-image input. `fetch` is injectable for testability. `filenameTags`, `suggestTags`, and the Vision response parsing are unit-tested.
 - **`electron-builder.yml`** — packages an unsigned macOS arm64 `.dmg` and a Windows x64 NSIS installer (`.exe`).
 
 Scripts: `npm run electron` (dev), `npm test` (`node:test` over the electron modules), `npm run dist` (build the `.dmg`).
@@ -116,11 +118,12 @@ The modal gains `.has-preview` (max-width: 700px) when a previewable file is sho
 
 ## AI Tag Suggestions
 
-`api/suggest-tags.js` powers the tag suggestion chips shown in the add/edit modal.
+`api/suggest-tags.js` powers the tag suggestion chips shown in the add/edit modal in the **web build**. In **Electron**, `apiSuggestTags` feature-detects `window.electronAPI?.ai` and routes through IPC to `electron/suggest-tags.cjs` instead, which calls Google Vision directly with the user's own stored key. The Vercel endpoint is never hit from the desktop app.
 
 - **Add mode**: suggestions fire automatically when files are selected. For multi-file uploads, the first image in the batch (or first file if none are images) is used as the source.
 - **Edit mode**: suggestions fire the first time the user clicks into the tags field (`focus` event on the tag input). Uses the stored `asset.thumbnail` — no re-upload needed. A `suggestionsFetched` flag prevents re-fetching within the same modal session.
 - **Source**: Google Cloud Vision `LABEL_DETECTION` for images (labels filtered to score ≥ 0.7). Non-image files get tags derived locally from filename/MIME type.
+- **Electron key management**: a Settings → AI section (Electron only) accepts the user's Google Cloud Vision API key. The key is encrypted via `safeStorage` and stored at `userData/vision-key.enc`. Save/Test/Clear buttons live in the panel; the raw key is only sent renderer→main, never returned. Without a stored key, image suggestions silently no-op (filename-derived tags for non-images still work).
 
 ## Multi-File Upload
 
@@ -145,7 +148,7 @@ Active only when `window.electronAPI` is present (the Electron shell). In a plai
 - **`BLOB_READ_WRITE_TOKEN`** — Vercel Blob read/write token. Set in Vercel project settings (auto-injected at runtime). For local dev, add to `.env.local`.
 - **`SUPABASE_URL`** — Supabase project URL (Settings → API → Project URL).
 - **`SUPABASE_SERVICE_KEY`** — Supabase service role key (Settings → API → Project API keys). Used server-side only; never exposed to the frontend.
-- **`GOOGLE_CLOUD_VISION_API_KEY`** — Google Cloud Vision API key. Used by `api/suggest-tags.js` for image label detection. Must have the Cloud Vision API enabled in the Google Cloud project.
+- **`GOOGLE_CLOUD_VISION_API_KEY`** — Google Cloud Vision API key. Used by `api/suggest-tags.js` for image label detection in the **web build only**. Electron users supply their own key via Settings → AI; the desktop app does not call this endpoint.
 
 ## Local Development
 

@@ -22,4 +22,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readFile:       (dirPath, filename)         => ipcRenderer.invoke('local:readFile',      dirPath, filename),
     deleteFile:     (dirPath, filename)         => ipcRenderer.invoke('local:deleteFile',    dirPath, filename),
   },
+  // AI tag suggestions. Raw key only travels renderer→main (save/test); the
+  // suggestTags call uses the stored key inside main and never returns it.
+  ai: {
+    getKeyStatus: ()        => ipcRenderer.invoke('ai:getKeyStatus'),
+    saveKey:      (key)     => ipcRenderer.invoke('ai:saveKey', key),
+    clearKey:     ()        => ipcRenderer.invoke('ai:clearKey'),
+    testKey:      (key)     => ipcRenderer.invoke('ai:testKey', key),
+    suggestTags:  (payload) => ipcRenderer.invoke('ai:suggestTags', payload),
+  },
 });

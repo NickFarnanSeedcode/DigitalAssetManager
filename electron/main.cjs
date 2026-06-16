@@ -6,6 +6,8 @@ const { pathToFileURL } = require('url');
 const { stage } = require('./staging.cjs');
 const { startDrag, copyFiles, saveToFolder } = require('./native-ops.cjs');
 const { API_BASE } = require('./config.cjs');
+const aiKey = require('./ai-key.cjs');
+const { suggestTags, testKey } = require('./suggest-tags.cjs');
 
 // Reject filenames that try to escape the local-mode folder. Asset filenames
 // are always "{uuid}.{ext}" so anything with a separator is a bug or attack.
@@ -141,6 +143,31 @@ app.whenReady().then(() => {
     } catch (err) {
       if (err.code !== 'ENOENT') throw err;
     }
+  });
+
+  // AI tag suggestions — user-supplied Google Vision API key, stored encrypted
+  // via safeStorage. Raw key never crosses the IPC boundary back to renderer.
+  ipcMain.handle('ai:getKeyStatus', () => ({ hasKey: aiKey.hasKey() }));
+
+  ipcMain.handle('ai:saveKey', async (e, plaintext) => {
+    await aiKey.writeKey(plaintext);
+    return { ok: true };
+  });
+
+  ipcMain.handle('ai:clearKey', async () => {
+    await aiKey.clearKey();
+    return { ok: true };
+  });
+
+  ipcMain.handle('ai:testKey', async (e, plaintext) => {
+    const key = (plaintext && plaintext.trim()) || (await aiKey.readKey());
+    if (!key) return { ok: false, error: 'No key provided or stored' };
+    return testKey({ key });
+  });
+
+  ipcMain.handle('ai:suggestTags', async (e, { thumbnail, filename, fileType }) => {
+    const key = await aiKey.readKey().catch(() => null);
+    return suggestTags({ key, thumbnail, filename, fileType });
   });
 
   app.on('window-all-closed', () => {

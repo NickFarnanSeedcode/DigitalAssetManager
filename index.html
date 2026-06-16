@@ -1433,6 +1433,29 @@
             </button>
         </div>
 
+        <div id="aiSettingsSection" style="display:none;">
+            <div class="settings-section-label">AI Tag Suggestions</div>
+
+            <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+                <div class="settings-row-info">
+                    <span class="settings-row-title">
+                        Google Cloud Vision API Key
+                        <span id="aiKeyStatus" class="settings-placeholder" style="margin-left:8px;">Not configured</span>
+                    </span>
+                    <span class="settings-row-desc">
+                        Used to suggest tags from image content. Your key, your quota — stored encrypted on this machine and never sent anywhere except Google.
+                        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer noopener" style="color:var(--accent); text-decoration:none;">Get a key</a>
+                    </span>
+                </div>
+                <input type="password" id="aiKeyInput" class="form-input" placeholder="AIza…" autocomplete="off" spellcheck="false">
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-save" id="btnAiSaveKey" style="font-size:12px; padding:8px 14px; height:auto;">Save</button>
+                    <button class="btn-cancel" id="btnAiTestKey" style="font-size:12px; padding:8px 14px; height:auto;">Test</button>
+                    <button class="btn-cancel danger" id="btnAiClearKey" style="font-size:12px; padding:8px 14px; height:auto; margin-left:auto; display:none;">Clear stored key</button>
+                </div>
+            </div>
+        </div>
+
         <div class="settings-section-label">Display</div>
 
         <div class="settings-row">
@@ -1546,6 +1569,17 @@ async function apiUploadFile(file, id) {
 }
 
 async function apiSuggestTags(thumbnail, filename, fileType) {
+    // In Electron we go through main (uses the user's stored Vision key, no CORS).
+    // In a plain browser we hit the Vercel endpoint as before.
+    if (window.electronAPI?.ai) {
+        try {
+            const data = await window.electronAPI.ai.suggestTags({ thumbnail, filename, fileType });
+            return Array.isArray(data?.suggestions) ? data.suggestions : [];
+        } catch (err) {
+            console.error('[suggest-tags] IPC error', err);
+            return [];
+        }
+    }
     const res = await fetch(`${API_BASE}/api/suggest-tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1557,7 +1591,6 @@ async function apiSuggestTags(thumbnail, filename, fileType) {
         return [];
     }
     const data = await res.json();
-    console.log('[suggest-tags] response:', data);
     return Array.isArray(data.suggestions) ? data.suggestions : [];
 }
 
@@ -2431,6 +2464,55 @@ $('btnChooseFolder').addEventListener('click', async () => {
     if (ok) await reloadAssetsForMode();
 });
 
+if (window.electronAPI?.ai) {
+    $('btnAiSaveKey').addEventListener('click', async () => {
+        const key = $('aiKeyInput').value.trim();
+        if (!key) { showToast('Enter a key first.', 'error'); return; }
+        setAiKeyStatus('saving');
+        try {
+            await window.electronAPI.ai.saveKey(key);
+            $('aiKeyInput').value = '';
+            await refreshAiKeyStatus();
+            showToast('API key saved.', 'success');
+        } catch (err) {
+            console.error('[ai] saveKey', err);
+            setAiKeyStatus('none');
+            showToast('Could not save key: ' + err.message, 'error');
+        }
+    });
+
+    $('btnAiTestKey').addEventListener('click', async () => {
+        const typed = $('aiKeyInput').value.trim();
+        setAiKeyStatus('testing');
+        try {
+            const result = await window.electronAPI.ai.testKey(typed || undefined);
+            if (result.ok) {
+                setAiKeyStatus('verified');
+                showToast('Key works.', 'success');
+            } else {
+                setAiKeyStatus('invalid');
+                showToast(result.error || 'Key did not validate.', 'error');
+            }
+        } catch (err) {
+            console.error('[ai] testKey', err);
+            setAiKeyStatus('invalid');
+            showToast('Test failed: ' + err.message, 'error');
+        }
+    });
+
+    $('btnAiClearKey').addEventListener('click', async () => {
+        try {
+            await window.electronAPI.ai.clearKey();
+            $('aiKeyInput').value = '';
+            await refreshAiKeyStatus();
+            showToast('Stored key cleared.', 'success');
+        } catch (err) {
+            console.error('[ai] clearKey', err);
+            showToast('Could not clear key: ' + err.message, 'error');
+        }
+    });
+}
+
 function openSettingsModal() {
     syncSettingsUI();
     $('settingsOverlay').classList.add('open');
@@ -2455,6 +2537,38 @@ function syncSettingsUI() {
         $('btnModeLocal').disabled = true;
         $('btnModeLocal').title    = 'Your browser does not support local folder access. Use Chrome or Edge.';
     }
+    if (window.electronAPI?.ai) {
+        $('aiSettingsSection').style.display = '';
+        refreshAiKeyStatus();
+    }
+}
+
+async function refreshAiKeyStatus() {
+    if (!window.electronAPI?.ai) return;
+    try {
+        const { hasKey } = await window.electronAPI.ai.getKeyStatus();
+        setAiKeyStatus(hasKey ? 'saved' : 'none');
+        $('btnAiClearKey').style.display = hasKey ? '' : 'none';
+    } catch (err) {
+        console.error('[ai] getKeyStatus failed', err);
+    }
+}
+
+// status: 'none' | 'saved' | 'verified' | 'invalid' | 'testing' | 'saving'
+function setAiKeyStatus(status, customLabel) {
+    const el = $('aiKeyStatus');
+    const map = {
+        none:     { label: 'Not configured', color: 'var(--text-muted)',  border: 'var(--border)' },
+        saved:    { label: 'Saved',          color: 'var(--text-secondary)', border: 'var(--border)' },
+        verified: { label: 'Verified',       color: 'var(--accent)',     border: 'var(--accent-muted)' },
+        invalid:  { label: 'Invalid',        color: 'var(--danger)',     border: 'var(--danger)' },
+        testing:  { label: 'Testing…',       color: 'var(--text-muted)',  border: 'var(--border)' },
+        saving:   { label: 'Saving…',        color: 'var(--text-muted)',  border: 'var(--border)' },
+    };
+    const s = map[status] || map.none;
+    el.textContent = customLabel || s.label;
+    el.style.color = s.color;
+    el.style.borderColor = s.border;
 }
 
 async function setStorageMode(mode) {
