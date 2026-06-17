@@ -104,7 +104,26 @@
             position: relative;
         }
 
-        .search-wrap svg {
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-input);
+            padding: 0 36px 0 38px;
+            overflow: hidden;
+            cursor: text;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .search-box.focused {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-muted);
+        }
+
+        .search-wrap > svg.search-icon {
             position: absolute;
             left: 13px;
             top: 50%;
@@ -141,25 +160,52 @@
 
         .search-clear:hover { background: var(--danger-muted); color: var(--danger); }
 
+        .search-chip {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--accent-muted);
+            color: var(--accent);
+            border-radius: 5px;
+            padding: 3px 6px 3px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+            max-width: 140px;
+        }
+
+        .search-chip-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .search-chip button {
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: .65;
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1;
+            padding: 0 2px;
+        }
+
+        .search-chip button:hover { opacity: 1; }
+
         #searchInput {
-            width: 100%;
-            height: 40px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-input);
-            padding: 0 36px 0 42px;
+            flex: 1;
+            min-width: 60px;
+            height: 100%;
+            background: transparent;
+            border: none;
             color: var(--text-primary);
             font-size: 14px;
             outline: none;
-            transition: border-color .2s, box-shadow .2s;
+            padding: 0;
         }
 
         #searchInput::placeholder { color: var(--text-muted); }
-
-        #searchInput:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-muted);
-        }
 
         .topbar-right {
             margin-left: auto;
@@ -342,6 +388,56 @@
         .btn-sort svg { transition: transform .25s; }
         .btn-sort.desc svg { transform: scaleY(-1); }
 
+        /* ── SORT MENU ── */
+        .sort-wrap { position: relative; }
+
+        .sort-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            box-shadow: var(--shadow-modal);
+            padding: 6px;
+            display: none;
+            z-index: 50;
+        }
+
+        .sort-menu.open { display: block; }
+
+        .sort-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 10px;
+            background: none;
+            border: none;
+            border-radius: 7px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+
+        .sort-menu-item:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+        .sort-menu-item.active {
+            background: var(--accent-muted);
+            color: var(--accent);
+        }
+
+        .sort-menu-item .sort-check {
+            margin-left: auto;
+            opacity: 0;
+            color: var(--accent);
+        }
+
+        .sort-menu-item.active .sort-check { opacity: 1; }
+
         .section-title {
             font-size: 20px;
             font-weight: 700;
@@ -395,6 +491,9 @@
             object-fit: cover;
             display: block;
         }
+
+        /* Small source images (pixel art) — render with nearest-neighbor so they stay crisp when scaled up */
+        .card-thumb img.pixelated { image-rendering: pixelated; image-rendering: crisp-edges; }
 
         .file-icon-wrap {
             display: flex;
@@ -1202,6 +1301,11 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+        /* Slimmer scrollbar inside modals so it sits inside the 22px rounded corners */
+        .modal::-webkit-scrollbar { width: 10px; }
+        .modal::-webkit-scrollbar-track { margin: 18px 0; background: transparent; }
+        .modal::-webkit-scrollbar-thumb { border: 2px solid transparent; }
     </style>
 </head>
 <body>
@@ -1218,10 +1322,12 @@
     <div class="divider"></div>
 
     <div class="search-wrap">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input id="searchInput" type="text" placeholder="Search by name or tag…" autocomplete="off">
+        <div class="search-box" id="searchBox">
+            <input id="searchInput" type="text" placeholder="Search by name or tag…" autocomplete="off">
+        </div>
         <button class="search-clear" id="btnClearSearch" title="Clear search">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1253,12 +1359,15 @@
             <div class="section-title">All Assets</div>
             <div class="section-sub" id="sectionSub">Your complete asset library</div>
         </div>
-        <button class="btn-sort" id="btnSort" title="Toggle sort order">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
-            </svg>
-            <span>Name A–Z</span>
-        </button>
+        <div class="sort-wrap">
+            <button class="btn-sort" id="btnSort" title="Change sort order" aria-haspopup="true" aria-expanded="false">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+                </svg>
+                <span id="sortLabel">Name A–Z</span>
+            </button>
+            <div class="sort-menu" id="sortMenu" role="menu"></div>
+        </div>
     </div>
     <div class="asset-grid" id="assetGrid">
         <div class="spinner-wrap"><div class="spinner"></div></div>
@@ -1860,7 +1969,9 @@ let allAssets    = [];
 let currentTags  = [];
 let selectedFiles = [];
 let editingId    = null;
+let sortKey      = 'name';   // 'name' | 'dateAdded' | 'fileType' | 'fileSize'
 let sortAsc      = true;
+let searchChips  = [];       // committed search terms (lowercased)
 let currentSuggestions  = [];   // AI-suggested tags not yet added
 let suggestAbortCtrl    = null; // cancel in-flight suggest request on file clear
 let suggestionsFetched  = false; // prevent re-fetching within the same modal session
@@ -1942,40 +2053,182 @@ const btnSave     = $('btnSave');
 })();
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
-searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim().toLowerCase();
-    $('btnClearSearch').classList.toggle('visible', q.length > 0);
+const searchBox = $('searchBox');
+
+function getSearchTerms() {
+    const partial = searchInput.value.trim().toLowerCase();
+    return partial ? [...searchChips, partial] : [...searchChips];
+}
+
+function searchDescription() {
+    const terms = getSearchTerms();
+    if (!terms.length) return '';
+    return terms.map(t => `"${t}"`).join(' + ');
+}
+
+function filterAssets(assets) {
+    const terms = getSearchTerms();
+    if (!terms.length) return assets;
+    return assets.filter(a => terms.every(t =>
+        a.name.toLowerCase().includes(t) ||
+        a.tags.some(tag => tag.toLowerCase().includes(t))
+    ));
+}
+
+function applyFilter() {
     const source = storageMode === 'local' ? displayAssets : allAssets;
-    if (!q) { renderGrid(source); return; }
-    const filtered = source.filter(a =>
-        a.name.toLowerCase().includes(q) ||
-        a.tags.some(t => t.includes(q))
-    );
-    renderGrid(filtered, q);
+    const hasQuery = getSearchTerms().length > 0;
+    renderGrid(hasQuery ? filterAssets(source) : source, hasQuery ? searchDescription() : '');
+    $('btnClearSearch').classList.toggle('visible', hasQuery);
+}
+
+function renderSearchChips() {
+    // Wipe existing chips, then re-insert before the input
+    searchBox.querySelectorAll('.search-chip').forEach(el => el.remove());
+    searchChips.forEach((term, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'search-chip';
+        chip.innerHTML = `<span class="search-chip-label"></span><button type="button" aria-label="Remove">×</button>`;
+        chip.querySelector('.search-chip-label').textContent = term;
+        chip.querySelector('button').addEventListener('click', e => {
+            e.stopPropagation();
+            searchChips.splice(i, 1);
+            renderSearchChips();
+            applyFilter();
+        });
+        searchBox.insertBefore(chip, searchInput);
+    });
+    searchInput.placeholder = searchChips.length ? 'Add another…' : 'Search by name or tag…';
+}
+
+function commitSearchChip() {
+    const v = searchInput.value.trim().toLowerCase();
+    if (!v) return false;
+    if (!searchChips.includes(v)) searchChips.push(v);
+    searchInput.value = '';
+    renderSearchChips();
+    applyFilter();
+    return true;
+}
+
+searchInput.addEventListener('input', applyFilter);
+
+searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Tab' && searchInput.value.trim()) {
+        e.preventDefault();
+        commitSearchChip();
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        commitSearchChip();
+    } else if (e.key === 'Backspace' && !searchInput.value && searchChips.length) {
+        searchChips.pop();
+        renderSearchChips();
+        applyFilter();
+    }
+});
+
+searchInput.addEventListener('focus', () => searchBox.classList.add('focused'));
+searchInput.addEventListener('blur',  () => {
+    searchBox.classList.remove('focused');
+    // Auto-commit on blur if there's typed text — feels less surprising than losing it
+    if (searchInput.value.trim()) commitSearchChip();
+});
+
+// Clicking anywhere in the chip strip focuses the input
+searchBox.addEventListener('click', e => {
+    if (e.target === searchBox) searchInput.focus();
 });
 
 $('btnClearSearch').addEventListener('click', () => {
     searchInput.value = '';
-    $('btnClearSearch').classList.remove('visible');
-    const source = storageMode === 'local' ? displayAssets : allAssets;
-    renderGrid(source);
+    searchChips = [];
+    renderSearchChips();
+    applyFilter();
     searchInput.focus();
 });
 
 /* ─── Sort ───────────────────────────────────────────────────────────────── */
-$('btnSort').addEventListener('click', () => {
-    sortAsc = !sortAsc;
-    const btn = $('btnSort');
-    btn.classList.toggle('desc', !sortAsc);
-    btn.querySelector('span').textContent = sortAsc ? 'Name A–Z' : 'Name Z–A';
-    searchInput.dispatchEvent(new Event('input'));
+const SORT_OPTIONS = [
+    { key: 'name',      asc: true,  label: 'Name A–Z' },
+    { key: 'name',      asc: false, label: 'Name Z–A' },
+    { key: 'dateAdded', asc: false, label: 'Newest first' },
+    { key: 'dateAdded', asc: true,  label: 'Oldest first' },
+    { key: 'fileType',  asc: true,  label: 'File type A–Z' },
+    { key: 'fileType',  asc: false, label: 'File type Z–A' },
+    { key: 'fileSize',  asc: false, label: 'Largest first' },
+    { key: 'fileSize',  asc: true,  label: 'Smallest first' },
+];
+
+function currentSortLabel() {
+    const m = SORT_OPTIONS.find(o => o.key === sortKey && o.asc === sortAsc);
+    return m ? m.label : 'Name A–Z';
+}
+
+function renderSortMenu() {
+    const menu = $('sortMenu');
+    menu.innerHTML = SORT_OPTIONS.map((o, i) => {
+        const active = o.key === sortKey && o.asc === sortAsc;
+        return `<button type="button" class="sort-menu-item${active ? ' active' : ''}" data-i="${i}" role="menuitem">
+            <span>${o.label}</span>
+            <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>`;
+    }).join('');
+    menu.querySelectorAll('.sort-menu-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const o = SORT_OPTIONS[+btn.dataset.i];
+            sortKey = o.key;
+            sortAsc = o.asc;
+            $('sortLabel').textContent = o.label;
+            $('btnSort').classList.toggle('desc', !sortAsc);
+            closeSortMenu();
+            applyFilter();
+        });
+    });
+}
+
+function openSortMenu() {
+    renderSortMenu();
+    $('sortMenu').classList.add('open');
+    $('btnSort').setAttribute('aria-expanded', 'true');
+}
+
+function closeSortMenu() {
+    $('sortMenu').classList.remove('open');
+    $('btnSort').setAttribute('aria-expanded', 'false');
+}
+
+$('btnSort').addEventListener('click', e => {
+    e.stopPropagation();
+    if ($('sortMenu').classList.contains('open')) closeSortMenu();
+    else openSortMenu();
+});
+
+document.addEventListener('click', e => {
+    if (!$('sortMenu').classList.contains('open')) return;
+    if (e.target.closest('.sort-wrap')) return;
+    closeSortMenu();
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('sortMenu').classList.contains('open')) closeSortMenu();
 });
 
 /* ─── Render ─────────────────────────────────────────────────────────────── */
 function sortedAssets(assets) {
+    const dir = sortAsc ? 1 : -1;
     return [...assets].sort((a, b) => {
-        const cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-        return sortAsc ? cmp : -cmp;
+        let cmp;
+        if (sortKey === 'dateAdded') {
+            cmp = (a.dateAdded || 0) - (b.dateAdded || 0);
+        } else if (sortKey === 'fileSize') {
+            cmp = (a.fileSize || 0) - (b.fileSize || 0);
+        } else if (sortKey === 'fileType') {
+            cmp = (a.ext || '').toLowerCase().localeCompare((b.ext || '').toLowerCase());
+            if (cmp === 0) cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        } else {
+            cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        }
+        return dir * cmp;
     });
 }
 
@@ -1999,14 +2252,14 @@ function renderGrid(assets, query = '') {
         <div class="state-box">
             <div class="icon-wrap">${svgSearch()}</div>
             <h3>No results found</h3>
-            <p>No assets match <strong>"${escHtml(query)}"</strong>. Try a different name or tag.</p>
+            <p>No assets match <strong>${escHtml(query)}</strong>. Try a different name or tag.</p>
         </div>`;
-        sectionSub.textContent = `No results for "${escHtml(query)}"`;
+        sectionSub.textContent = `No results for ${query}`;
         return;
     }
 
     sectionSub.textContent = query
-        ? `${assets.length} result${assets.length !== 1 ? 's' : ''} for "${escHtml(query)}"`
+        ? `${assets.length} result${assets.length !== 1 ? 's' : ''} for ${query}`
         : `${total} asset${total !== 1 ? 's' : ''} in your library`;
 
     assetGrid.innerHTML = sortedAssets(assets).map(cardHTML).join('');
@@ -2024,10 +2277,10 @@ function cardHTML(a) {
     if (isGif && a.blobUrl) {
         // Show static first-frame thumbnail initially; IntersectionObserver swaps in the live GIF
         const staticSrc = a.thumbnail || '';
-        thumb = `<img src="${staticSrc}" data-gif="${a.blobUrl}" data-static="${staticSrc}" alt="${escHtml(a.name)}">
+        thumb = `<img src="${staticSrc}" data-gif="${a.blobUrl}" data-static="${staticSrc}" alt="${escHtml(a.name)}" onload="checkPixelArt(this)">
                  <span class="gif-badge">GIF</span>`;
     } else if (a.thumbnail) {
-        thumb = `<img src="${a.thumbnail}" alt="${escHtml(a.name)}" loading="lazy">`;
+        thumb = `<img src="${a.thumbnail}" alt="${escHtml(a.name)}" loading="lazy" onload="checkPixelArt(this)">`;
     } else {
         thumb = `<div class="file-icon-wrap cat-${extCategory(ext)}">${svgIconForExt(ext)}<span class="file-ext-badge ext-${ext}">${escHtml(ext)}</span></div>`;
     }
@@ -2221,9 +2474,7 @@ $('btnBulkDelete').addEventListener('click', async () => {
     }
     selectedAssetIds.clear();
     lastSelectedId = null;
-    const q = searchInput.value.trim().toLowerCase();
-    const renderSource = storageMode === 'local' ? displayAssets : allAssets;
-    renderGrid(q ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q))) : renderSource, q);
+    applyFilter();
     showToast(failed > 0
         ? `Deleted ${ids.length - failed} assets. ${failed} failed.`
         : `Deleted ${ids.length} asset${ids.length !== 1 ? 's' : ''}.`,
@@ -2424,9 +2675,7 @@ $('btnBulkSave').addEventListener('click', async () => {
         } catch { failed++; }
     }
     $('bulkOverlay').classList.remove('open');
-    const q = searchInput.value.trim().toLowerCase();
-    const renderSource = storageMode === 'local' ? displayAssets : allAssets;
-    renderGrid(q ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q))) : renderSource, q);
+    applyFilter();
     showToast(failed > 0
         ? `Tags added to ${ids.length - failed} assets. ${failed} failed.`
         : `Tags added to ${ids.length} asset${ids.length !== 1 ? 's' : ''}.`,
@@ -3017,11 +3266,7 @@ btnSave.addEventListener('click', async () => {
                 if (dIdx !== -1) { displayAssets[dIdx].name = name; displayAssets[dIdx].tags = [...currentTags]; displayAssets[dIdx].notes = notes; }
             }
             closeModal();
-            const q = searchInput.value.trim().toLowerCase();
-            const renderSource = storageMode === 'local' ? displayAssets : allAssets;
-            renderGrid(q
-                ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q)))
-                : renderSource, q);
+            applyFilter();
             showToast('Asset updated!', 'success');
         } catch (err) {
             console.error(err);
@@ -3076,11 +3321,7 @@ btnSave.addEventListener('click', async () => {
             displayAssets = await localResolveObjectURLs(allAssets);
         }
         closeModal();
-        const q = searchInput.value.trim().toLowerCase();
-        const renderSource = storageMode === 'local' ? displayAssets : allAssets;
-        renderGrid(q
-            ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q)))
-            : renderSource, q);
+        applyFilter();
         showToast(total > 1 ? `${total} assets added!` : 'Asset added!', 'success');
     } catch (err) {
         console.error(err);
@@ -3225,11 +3466,7 @@ window.deleteAsset = async function(id) {
             if (dAsset?.blobUrl?.startsWith('blob:')) URL.revokeObjectURL(dAsset.blobUrl);
             displayAssets = displayAssets.filter(a => a.id !== id);
         }
-        const q = searchInput.value.trim().toLowerCase();
-        const renderSource = storageMode === 'local' ? displayAssets : allAssets;
-        renderGrid(q
-            ? renderSource.filter(a => a.name.toLowerCase().includes(q) || a.tags.some(t => t.includes(q)))
-            : renderSource, q);
+        applyFilter();
         showToast('Asset deleted.', 'success');
     } catch (err) {
         console.error(err);
@@ -3271,6 +3508,13 @@ function showToast(msg, type = 'success') {
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
+// Render small source images (≤256px) with nearest-neighbor so pixel art stays crisp when scaled up to fill the card.
+window.checkPixelArt = function(img) {
+    if (!img.naturalWidth) return;
+    const small = img.naturalWidth <= 256 && img.naturalHeight <= 256;
+    img.classList.toggle('pixelated', small);
+};
+
 function escHtml(s) {
     return String(s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
