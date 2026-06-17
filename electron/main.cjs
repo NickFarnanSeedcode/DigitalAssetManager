@@ -132,6 +132,37 @@ app.whenReady().then(() => {
     return result.filePaths[0];
   });
 
+  // Native picker for the Add-asset drop zone — allows files AND folders in a
+  // single dialog (HTML <input> can only do one). Walks any directories and
+  // returns a flat list of { name, bytes } for the renderer to wrap in File.
+  ipcMain.handle('dialog:pickImport', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile', 'openDirectory', 'multiSelections'],
+    });
+    if (result.canceled || !result.filePaths.length) return [];
+    const filePaths = [];
+    async function walk(p) {
+      const stat = await fsp.stat(p);
+      if (stat.isDirectory()) {
+        const entries = await fsp.readdir(p, { withFileTypes: true });
+        for (const ent of entries) {
+          if (ent.name.startsWith('.')) continue;
+          await walk(path.join(p, ent.name));
+        }
+      } else if (stat.isFile()) {
+        filePaths.push(p);
+      }
+    }
+    for (const p of result.filePaths) await walk(p);
+    const files = [];
+    for (const fp of filePaths) {
+      const bytes = await fsp.readFile(fp);
+      files.push({ name: path.basename(fp), bytes });
+    }
+    return files;
+  });
+
   ipcMain.handle('local:readManifest', async (e, dirPath) => {
     try {
       const text = await fsp.readFile(path.join(dirPath, 'dam_data.json'), 'utf8');

@@ -30,6 +30,44 @@
             --radius-input:  10px;
         }
 
+        :root[data-theme="light"] {
+            --bg-primary:    #F5F7FB;
+            --bg-secondary:  #FFFFFF;
+            --bg-card:       #FFFFFF;
+            --bg-card-hover: #F0F3FA;
+            --border:        #E2E6EE;
+            --border-light:  #C8D0DE;
+            --accent-muted:  rgba(0, 178, 141, 0.14);
+            --accent-glow:   rgba(0, 178, 141, 0.08);
+            --text-primary:  #1A2038;
+            --text-secondary:#5E6781;
+            --text-muted:    #97A0B8;
+            --tag-bg:        #EAEEF8;
+            --tag-text:      #4A5BAA;
+            --danger-muted:  rgba(255, 77, 106, 0.12);
+            --shadow-card:   0 2px 12px rgba(20, 30, 60, 0.08);
+            --shadow-modal:  0 24px 80px rgba(20, 30, 60, 0.18);
+        }
+
+        /* Keep the topbar (and any dropdowns it owns, like the sort menu) on the
+           dark palette in light mode, so it stands apart from the page. */
+        :root[data-theme="light"] .topbar {
+            --bg-primary:    #0B0D1A;
+            --bg-secondary:  #111320;
+            --bg-card:       #151828;
+            --bg-card-hover: #1B1F35;
+            --border:        #232840;
+            --border-light:  #2D3455;
+            --text-primary:  #F0F2FF;
+            --text-secondary:#8892B4;
+            --text-muted:    #404870;
+            --tag-bg:        #1C2245;
+            --tag-text:      #7B9FE0;
+            --accent-muted:  rgba(0, 212, 168, 0.12);
+            --accent-glow:   rgba(0, 212, 168, 0.08);
+            --danger-muted:  rgba(255, 77, 106, 0.12);
+        }
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -287,6 +325,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 16px;
             padding: 12px 14px;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -294,7 +333,8 @@
             margin-bottom: 8px;
         }
 
-        .settings-row-info { display: flex; flex-direction: column; gap: 3px; }
+        .settings-row-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+        .settings-row > :not(.settings-row-info) { flex-shrink: 0; }
 
         .settings-row-title {
             font-size: 13px;
@@ -317,6 +357,24 @@
             pointer-events: none;
             user-select: none;
         }
+
+        .settings-select {
+            font-family: inherit;
+            font-size: 12px;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 26px 6px 10px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23A0A8C5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 9px center;
+            transition: border-color .2s;
+        }
+        .settings-select:hover  { border-color: var(--border-light); }
+        .settings-select:focus  { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-muted); }
 
         .storage-toggle-group {
             display: flex;
@@ -1548,15 +1606,18 @@
                 <span class="settings-row-title">Default sort order</span>
                 <span class="settings-row-desc">How assets are ordered when the library loads</span>
             </div>
-            <span class="settings-placeholder">Coming soon</span>
+            <select class="settings-select" id="defaultSortSelect"></select>
         </div>
 
         <div class="settings-row">
             <div class="settings-row-info">
-                <span class="settings-row-title">Assets per page</span>
-                <span class="settings-row-desc">Limit the number of visible assets at once</span>
+                <span class="settings-row-title">Theme</span>
+                <span class="settings-row-desc">Switch between dark and light appearance</span>
             </div>
-            <span class="settings-placeholder">Coming soon</span>
+            <div class="storage-toggle-group">
+                <button class="storage-mode-btn" id="btnThemeDark"  onclick="setTheme('dark')">Dark</button>
+                <button class="storage-mode-btn" id="btnThemeLight" onclick="setTheme('light')">Light</button>
+            </div>
         </div>
 
         <div class="settings-section-label">Storage</div>
@@ -2164,6 +2225,34 @@ function currentSortLabel() {
     return m ? m.label : 'Name A–Z';
 }
 
+// Apply the user's saved theme before the first paint of any settings UI.
+// First run with no saved value keeps the default dark palette.
+(function applySavedTheme() {
+    const saved = localStorage.getItem('theme');
+    document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
+})();
+
+function setTheme(theme) {
+    if (theme !== 'light' && theme !== 'dark') return;
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme', theme);
+    syncSettingsUI();
+}
+
+// Apply the user's saved Default sort order before the boot IIFE awaits in
+// and calls renderGrid. First run with no saved value keeps Name A–Z.
+(function applySavedDefaultSort() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('defaultSort') || 'null');
+        if (saved && SORT_OPTIONS.some(o => o.key === saved.key && o.asc === saved.asc)) {
+            sortKey = saved.key;
+            sortAsc = saved.asc;
+        }
+    } catch {}
+    $('sortLabel').textContent = currentSortLabel();
+    $('btnSort').classList.toggle('desc', !sortAsc);
+})();
+
 function renderSortMenu() {
     const menu = $('sortMenu');
     menu.innerHTML = SORT_OPTIONS.map((o, i) => {
@@ -2766,6 +2855,17 @@ $('btnCloseSettings').addEventListener('click', closeSettingsModal);
 $('btnSettingsClose').addEventListener('click', closeSettingsModal);
 $('settingsOverlay').addEventListener('click', e => { if (e.target === $('settingsOverlay')) closeSettingsModal(); });
 
+$('defaultSortSelect').addEventListener('change', e => {
+    const o = SORT_OPTIONS[+e.target.value];
+    if (!o) return;
+    sortKey = o.key;
+    sortAsc = o.asc;
+    localStorage.setItem('defaultSort', JSON.stringify({ key: o.key, asc: o.asc }));
+    $('sortLabel').textContent = o.label;
+    $('btnSort').classList.toggle('desc', !sortAsc);
+    applyFilter();
+});
+
 // Picking a folder from Settings (the user is already in Local mode) needs to
 // reload — setStorageMode chains the reload itself, but the standalone button
 // did not, leaving an empty grid until the next launch.
@@ -2833,6 +2933,17 @@ function closeSettingsModal() {
 }
 
 function syncSettingsUI() {
+    const sel = $('defaultSortSelect');
+    if (!sel.options.length) {
+        sel.innerHTML = SORT_OPTIONS.map((o, i) => `<option value="${i}">${o.label}</option>`).join('');
+    }
+    const idx = SORT_OPTIONS.findIndex(o => o.key === sortKey && o.asc === sortAsc);
+    sel.value = String(idx >= 0 ? idx : 0);
+
+    const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    $('btnThemeDark') .classList.toggle('active', theme === 'dark');
+    $('btnThemeLight').classList.toggle('active', theme === 'light');
+
     $('btnModeCloud').classList.toggle('active', storageMode === 'cloud');
     $('btnModeLocal').classList.toggle('active', storageMode === 'local');
     $('localFolderRow').style.display = storageMode === 'local' ? '' : 'none';
@@ -3017,6 +3128,32 @@ $('dzFolderLink').addEventListener('click', e => {
     folderInput.value = '';
     folderInput.click();
 });
+
+// Electron: route the drop-zone click to a native dialog that accepts both
+// files and folders in one shot — HTML <input> can only do one or the other.
+if (window.electronAPI?.pickImport) {
+    const extMime = {
+        jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif',
+        webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp', avif:'image/avif',
+        tiff:'image/tiff', ico:'image/x-icon',
+        mp4:'video/mp4', mov:'video/quicktime', webm:'video/webm',
+        mkv:'video/x-matroska', avi:'video/x-msvideo', m4v:'video/mp4',
+        mp3:'audio/mpeg', wav:'audio/wav', ogg:'audio/ogg', m4a:'audio/mp4',
+        aac:'audio/aac', flac:'audio/flac',
+        pdf:'application/pdf', txt:'text/plain', json:'application/json',
+    };
+    fileInput.style.pointerEvents = 'none';
+    $('dzFolderLink').parentElement.style.display = 'none';
+    dropZone.addEventListener('click', async () => {
+        const picked = await window.electronAPI.pickImport();
+        if (!picked?.length) return;
+        const files = picked.map(p => {
+            const ext = p.name.split('.').pop()?.toLowerCase() || '';
+            return new File([p.bytes], p.name, { type: extMime[ext] || '' });
+        });
+        handleFiles(files);
+    });
+}
 
 dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
