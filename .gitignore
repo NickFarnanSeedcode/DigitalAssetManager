@@ -1,7 +1,7 @@
 node_modules/
 .env.local
 .vercel/
-.docs/
+docs/
 .vercel
 .env*.local
 dist-electron/
