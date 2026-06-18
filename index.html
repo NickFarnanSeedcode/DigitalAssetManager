@@ -1973,6 +1973,12 @@ async function localCreate(asset) {
     await localWriteManifest(manifest);
 }
 
+async function localCreateMany(assets) {
+    const manifest = await localReadManifest();
+    manifest.assets.push(...assets);
+    await localWriteManifest(manifest);
+}
+
 async function localUpdate(id, patch) {
     const manifest = await localReadManifest();
     const idx      = manifest.assets.findIndex(a => a.id === id);
@@ -3513,6 +3519,7 @@ btnSave.addEventListener('click', async () => {
     const total = selectedFiles.length;
 
     try {
+        const created = [];
         for (let i = 0; i < total; i++) {
             const file = selectedFiles[i];
             const name = total === 1
@@ -3537,8 +3544,15 @@ btnSave.addEventListener('click', async () => {
                 blobUrl,
                 dateAdded: Date.now(),
             };
-            await dispatchCreate(asset);
+            // Local mode: defer manifest write until after the loop — one write
+            // instead of N. Cloud mode: per-asset Supabase insert is cheap.
+            if (storageMode === 'local') created.push(asset);
+            else                          await dispatchCreate(asset);
             allAssets.push(asset);
+        }
+        if (storageMode === 'local' && created.length) {
+            btnSave.textContent = 'Saving…';
+            await localCreateMany(created);
         }
 
         if (storageMode === 'local') {

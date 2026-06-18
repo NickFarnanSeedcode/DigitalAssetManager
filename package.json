@@ -1,6 +1,6 @@
 {
-  "name": "digitaldam",
-  "version": "1.0.1",
+  "name": "AtlasForge",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
