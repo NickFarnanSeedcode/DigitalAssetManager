@@ -49,6 +49,12 @@
             --shadow-modal:  0 24px 80px rgba(20, 30, 60, 0.18);
         }
 
+        /* Asset card borders are nearly invisible against white in light mode —
+           the default --border lands on top of --bg-card. Bump the card outline
+           to a darker mid-gray without touching the global --border (which is
+           used in many other places that already read fine). */
+        :root[data-theme="light"] .asset-card { border-color: #B8C0D0; }
+
         /* Keep the topbar (and any dropdowns it owns, like the sort menu) on the
            dark palette in light mode, so it stands apart from the page. */
         :root[data-theme="light"] .topbar {
