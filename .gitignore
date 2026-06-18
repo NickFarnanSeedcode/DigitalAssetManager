@@ -1,8 +1,9 @@
 node_modules/
 .env.local
 .vercel/
-
+.docs/
 .vercel
 .env*.local
 dist-electron/
 .DS_Store
+CLAUDE.md
