@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, protocol, net, ipcMain, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, Menu, protocol, net, ipcMain, nativeImage, dialog, shell } = require('electron');
 const path = require('path');
 const fsp = require('fs/promises');
 const { pathToFileURL } = require('url');
@@ -54,9 +54,46 @@ function createWindow() {
     },
   });
   mainWindow.loadURL('app://bundle/index.html');
+  mainWindow.webContents.once('did-finish-load', () => {
+    checkForUpdates(mainWindow);
+  });
+}
+
+// Notification-only updater: poll GitHub Releases on launch and let the
+// renderer show a banner. The app is unsigned so silent auto-install would be
+// blocked on macOS anyway — the user installs the new build manually.
+const UPDATE_REPO = 'NickFarnanSeedcode/DigitalAssetManager';
+function compareSemver(a, b) {
+  const pa = a.split('.').map(n => parseInt(n, 10) || 0);
+  const pb = b.split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x !== y) return x > y ? 1 : -1;
+  }
+  return 0;
+}
+async function checkForUpdates(win) {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`, {
+      headers: { Accept: 'application/vnd.github+json' },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const tag = (data.tag_name || '').replace(/^v/, '');
+    if (!tag || compareSemver(tag, app.getVersion()) <= 0) return;
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('update-available', { version: tag, url: data.html_url });
+    }
+  } catch (err) {
+    console.warn('[update-check]', err.message);
+  }
 }
 
 app.whenReady().then(() => {
+  // No File/Edit/View menu — this is a single-window app without menu-only
+  // actions, so the default menu adds chrome without value.
+  Menu.setApplicationMenu(null);
+
   protocol.handle('app', (request) => {
     const url = new URL(request.url);
     let rel = decodeURIComponent(url.pathname);
@@ -244,6 +281,18 @@ app.whenReady().then(() => {
   ipcMain.handle('ai:suggestTags', async (e, { thumbnail, filename, fileType }) => {
     const key = await aiKey.readKey().catch(() => null);
     return suggestTags({ key, thumbnail, filename, fileType });
+  });
+
+  // Used by the update banner. Constrained to GitHub URLs so a hijacked
+  // releases response can't be used to open arbitrary links.
+  ipcMain.handle('shell:openExternal', async (e, url) => {
+    if (typeof url !== 'string') return;
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'https:') return;
+      if (!(u.hostname === 'github.com' || u.hostname.endsWith('.github.com'))) return;
+      await shell.openExternal(url);
+    } catch {}
   });
 
   app.on('window-all-closed', () => {

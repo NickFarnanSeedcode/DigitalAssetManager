@@ -8,6 +8,7 @@ const API_BASE = apiArg.slice('--dam-api-base='.length);
 
 contextBridge.exposeInMainWorld('electronAPI', {
   apiBase:      API_BASE,
+  platform:     process.platform,
   prepareDrag:  (specs) => ipcRenderer.invoke('prepare-drag', specs), // stage, return paths
   beginDrag:    (paths, icon) => ipcRenderer.send('begin-drag', { paths, icon }), // fire startDrag now
   copyFiles:    (specs) => ipcRenderer.invoke('stage-and-copy', specs),
@@ -35,4 +36,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     testKey:      (key)     => ipcRenderer.invoke('ai:testKey', key),
     suggestTags:  (payload) => ipcRenderer.invoke('ai:suggestTags', payload),
   },
+  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, info) => cb(info)),
+  openExternal:      (url) => ipcRenderer.invoke('shell:openExternal', url),
 });
