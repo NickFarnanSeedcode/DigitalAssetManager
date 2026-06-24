@@ -2703,6 +2703,8 @@ function renderGrid(assets, query = '') {
             <p>Click <strong style="color:var(--accent)">Add Asset</strong> to upload your first file and tag it for quick searching.</p>
         </div>`;
         sectionSub.textContent = 'Your complete asset library';
+        updateSelectionUI();
+        refreshSidebar();
         return;
     }
 
@@ -2714,6 +2716,8 @@ function renderGrid(assets, query = '') {
             <p>No assets match <strong>${escHtml(query)}</strong>. Try a different name or tag.</p>
         </div>`;
         sectionSub.textContent = `No results for ${query}`;
+        updateSelectionUI();
+        refreshSidebar();
         return;
     }
 
